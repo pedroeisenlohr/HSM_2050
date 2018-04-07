@@ -21,12 +21,12 @@ dir() #Dentre as pastas, DEVE haver "Environmental Layers" e "Shapefiles"
 
 ### Sempre que necessário:
 # Processamento paralelo
-cl <- makeCluster(detectCores()) # number of cores in computer
-registerDoParallel(cl)
-getDoParWorkers()
+#cl <- makeCluster(detectCores()) # number of cores in computer
+#registerDoParallel(cl)
+#getDoParWorkers()
 
 # Aumento da alocação de memória
-memory.limit(10000000000) # ou algum outro valor de memória (em kB)
+#memory.limit(10000000000) # ou algum outro valor de memória (em kB)
 
 
 
