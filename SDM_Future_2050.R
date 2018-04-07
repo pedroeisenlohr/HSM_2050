@@ -1,15 +1,15 @@
 #######################################
-## DEFININDO O DIRETÓRIO DE TRABALHO ##
+## DEFININDO O DIRETÃ“RIO DE TRABALHO ##
 #######################################
 
-#Para seguir essa rotina, é necessário que:
-#1) Defina-se uma pasta denominada "Habitat Suitability Models" como diretório.
-#2) Dentro de Habitat Suitability Models", inclua as seguintes pastas e subpastas:
+#Para seguir essa rotina, Ã© necessÃ¡rio que:
+#1) Defina-se uma pasta denominada "Habitat Suitability Models" como diretÃ³rio.
+#2) Dentro de Habitat Suitability Models", incluam-se as seguintes pastas e subpastas:
 #2.1) Environmental Layers
 #2.1.1) CHELSA.
 #2.1.2) CHELSA_Future.
 #2.2) Shapefiles.
-#Caso você queira o conteúdo completo dessas pastas, favor entrar em contato comigo (pedro.eisenlohr@unemat.br).
+#Caso vocÃª queira o conteÃºdo completo dessas pastas, favor entrar em contato comigo (pedro.eisenlohr@unemat.br).
 
 
 
@@ -19,14 +19,14 @@ dir() #Dentre as pastas, DEVE haver "Environmental Layers" e "Shapefiles"
 
 
 
-### Sempre que necessário:
+### Sempre que necessÃ¡rio:
 # Processamento paralelo
 cl <- makeCluster(detectCores()) # number of cores in computer
 registerDoParallel(cl)
 getDoParWorkers()
 
-# Aumento da alocação de memória
-memory.limit(10000000000) # ou algum outro valor de memória (em kB)
+# Aumento da alocaÃ§Ã£o de memÃ³ria
+memory.limit(10000000000) # ou algum outro valor de memÃ³ria (em kB)
 
 
 
@@ -76,7 +76,7 @@ library(sdmvspecies)
 ## IMPORTANDO E CHECANDO OS DADOS ##
 ####################################
 
-# Importando dados climáticos do presente
+# Importando dados climÃ¡ticos do presente
 bio.crop <- list.files("./Environmental layers/CHELSA", full.names=TRUE, pattern=".grd")
 bio.crop
 bio.crop <- stack(bio.crop)
@@ -88,48 +88,48 @@ res(bio.crop)
 neotrop <- readOGR("./Shapefiles/ShapeNeo/neotropic.shp")
 domains <- readOGR("./Shapefiles/Shape_Dominios/Dominio_AbSaber.shp")
 
-# Padronizando a escala das variáveis climáticas (0-1)
+# Padronizando a escala das variÃ¡veis climÃ¡ticas (0-1)
 bio.crop <- rescale(bio.crop)
 
 # Checando bio.crop
-bio.crop #Observe atentamente esta sequência!
+bio.crop #Observe atentamente esta sequÃªncia!
 names(bio.crop)=c("bio01","bio02","bio03","bio04","bio05","bio06","bio07",
 			"bio08","bio09","bio10","bio11","bio12","bio13","bio14",
 			"bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com bio.crop
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com bio.crop
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(bio.crop)
 
-# Importando dados bióticos
+# Importando dados biÃ³ticos
 spp<-read.table(file.choose(),row.names=1,header=T,sep=",")
 dim(spp)
 edit(spp)
 
-# Diagnosticando possíveis problemas com a matriz biótica:
+# Diagnosticando possÃ­veis problemas com a matriz biÃ³tica:
 csum <- colSums(spp) 
 any(is.na(csum)) 
-### Se aparecer [FALSE], está tudo certo. Se não, siga os dois passos abaixo.
+### Se aparecer [FALSE], estÃ¡ tudo certo. Se nÃ£o, siga os dois passos abaixo.
 #which(is.na(csum)) 
 #summary(spp[, c("x")]) # substitua 'x' pelo nome da coluna
 
-# Selecionado pontos espacialmente únicos #
+# Selecionado pontos espacialmente Ãºnicos #
 mask <- bio.crop[[1]]
 cell <- cellFromXY(mask, spp[,1:2]) # get the cell number for each point
 dup <- duplicated(cbind(spp[,1:2],cell))
 spp <- spp[!dup, ]# select the records that are not duplicated
 dim(spp)
 
-# Visualindo os dados de ocorrência da espécie no mapa #Dê os 3 comandos de uma vez
+# Visualindo os dados de ocorrÃªncia da espÃ©cie no mapa #DÃª os 3 comandos de uma vez
 data(wrld_simpl)
 plot(wrld_simpl, xlim=c(-85, -35), ylim=c(-55, 50), col="lightgray", axes=TRUE)
 points(spp$long, spp$lat, col="black", bg="red", pch=21, cex=1.5, lwd=1.5)
 
 
 #####################################################
-## PRIMEIRO PASSO DE VERIFICAÇÃO DE COLINEARIDADES ##
+## PRIMEIRO PASSO DE VERIFICAÃ‡ÃƒO DE COLINEARIDADES ##
 #####################################################
 
-# Obtendo os dados climáticos para os pontos de ocorrência
+# Obtendo os dados climÃ¡ticos para os pontos de ocorrÃªncia
 presvals <- extract(bio.crop, spp)
 
 # PCA
@@ -139,24 +139,24 @@ pca <- PCA(presvals,graph=FALSE)
 # Detectando e removendo colinearidades
 v1 <- vifcor(presvals, th=0.8)
 v1
-### Confira se nenhuma variável apresenta VIF>10
-# Se alguma variável apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
+### Confira se nenhuma variÃ¡vel apresenta VIF>10
+# Se alguma variÃ¡vel apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
 
 bio.crop2 <- exclude(bio.crop, v1) 
-#Se quiser excluir variáveis manualmente:
-#bio.crop2 <- dropLayer(bio.crop, c(n1,n2,n3))#n1,n2,n3=variáveis a serem removidas (inclua apenas o número de ordem)
+#Se quiser excluir variÃ¡veis manualmente:
+#bio.crop2 <- dropLayer(bio.crop, c(n1,n2,n3))#n1,n2,n3=variÃ¡veis a serem removidas (inclua apenas o nÃºmero de ordem)
 bio.crop2
 names(bio.crop2)
 
 
 ####################################################
-## SEGUNDO PASSO DE VERIFICAÇÃO DE COLINEARIDADES ##
+## SEGUNDO PASSO DE VERIFICAÃ‡ÃƒO DE COLINEARIDADES ##
 ####################################################
 
-# Selecionando 10000 pontos aleatórios ao longo do Neotrópico
+# Selecionando 10000 pontos aleatÃ³rios ao longo do NeotrÃ³pico
 mask <- bio.crop$bio01 
 rnd.points <- randomPoints(mask, 10000)
-#plot(!is.na(mask), legend = F)#Dê este comando juntamente com o próximo.
+#plot(!is.na(mask), legend = F)#DÃª este comando juntamente com o prÃ³ximo.
 #points(rnd.points, cex = 0.5)
 
 # Principal Components Analysis (PCA) 
@@ -167,8 +167,8 @@ pca.env.data <- princomp(env.data, cor = T)
 # Detectando e removendo colinearidades
 v1 <- vifcor(env.data, th=0.8)
 v1
-### Confira se nenhuma variável apresenta VIF>10
-# Se alguma variável apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
+### Confira se nenhuma variÃ¡vel apresenta VIF>10
+# Se alguma variÃ¡vel apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
 
 env.selected <- exclude(bio.crop2, v1) #exclude collinear variables identified with vifcor 
 env.selected <- stack(env.selected)
@@ -180,7 +180,7 @@ names(env.selected)
 ################################################
 
 # Convert dataset to SpatialPointsDataFrame (only presences)
-myRespXY <- spp[,c("long","lat")] #Caso dê algum erro aqui, veja como você intitulou as colunas da sua matriz.
+myRespXY <- spp[,c("long","lat")] #Caso dÃª algum erro aqui, veja como vocÃª intitulou as colunas da sua matriz.
 # Creating occurrence data object
 occurrence.resp <-  rep(1, length(myRespXY$long))
 
@@ -195,13 +195,13 @@ sppBiomodData.PA.equal <- BIOMOD_FormatingData(
 	expl.var = env.selected,
 	resp.xy = myRespXY,
 	resp.name = "Occurrence",
-	PA.nb.rep = 1, #número de datasets de pseudoausências
-	PA.nb.absences = ***, # ***= número de pseudoausências = número de pontos espacialmente únicos
+	PA.nb.rep = 1, #nÃºmero de datasets de pseudoausÃªncias
+	PA.nb.absences = ***, # ***= nÃºmero de pseudoausÃªncias = nÃºmero de pontos espacialmente Ãºnicos
 	PA.strategy = "disk")
 sppBiomodData.PA.equal
 
 
-#Não fazer ajustes abaixo:
+#NÃ£o fazer ajustes abaixo:
 sppBiomodData.PA.10000 <- BIOMOD_FormatingData(
 	resp.var = occurrence.resp,
 	expl.var = env.selected,
@@ -221,11 +221,11 @@ sppBiomodData.PA.10000
 #    download.file(url, dest = "maxent.zip", mode = "wb")
 #    unzip("maxent.zip", files = "maxent.jar", exdir = system.file("java", package = "dismo"))
 #    unlink("maxent.zip")
-#    warning("Maxent foi colocado no diretório")
+#    warning("Maxent foi colocado no diretÃ³rio")
 #  } 
 system.file("java", package = "dismo")
 
-# Abaixo, defina o diretório exatamente como mostrado após o comando acima
+# Abaixo, defina o diretÃ³rio exatamente como mostrado apÃ³s o comando acima
 myBiomodOption <- BIOMOD_ModelingOptions(MAXENT.Phillips = list(path_to_maxent.jar="C:/Users/Laboratorio/Documents/R/win-library/3.4/dismo/java"))
 
 
@@ -235,14 +235,14 @@ myBiomodOption <- BIOMOD_ModelingOptions(MAXENT.Phillips = list(path_to_maxent.j
 ### Modelagem ###
 #################
 
-# Com partição treino x teste:
+# Com partiÃ§Ã£o treino x teste:
 sppModelOut.PA.equal <- BIOMOD_Modeling(sppBiomodData.PA.equal, 
 	models = c("GBM", "CTA", "RF"), 
 	models.options = NULL,
-	NbRunEval = 10, #número de repetições para cada algoritmo
+	NbRunEval = 10, #nÃºmero de repetiÃ§Ãµes para cada algoritmo
 	DataSplit = 70, #percentagem de pts para treino.
 	Prevalence = 0.5, 
-	VarImport = 0, #caso queira avaliar a importância das variáveis, mudar para 10 ou 100 permutações
+	VarImport = 0, #caso queira avaliar a importÃ¢ncia das variÃ¡veis, mudar para 10 ou 100 permutaÃ§Ãµes
 	models.eval.meth = c("TSS","ROC"),
 	SaveObj = TRUE,
 	rescal.all.models = FALSE,
@@ -251,9 +251,9 @@ sppModelOut.PA.equal <- BIOMOD_Modeling(sppBiomodData.PA.equal,
 sppModelOut.PA.equal
 
 
-#################### ATENÇÃO!!! ########################
-### Somente siga após concluir o passo anterior ########
-## A modelagem a seguir é bastante exigente para o PC ##
+#################### ATENÃ‡ÃƒO!!! ########################
+### Somente siga apÃ³s concluir o passo anterior ########
+## A modelagem a seguir Ã© bastante exigente para o PC ##
 ########################################################
 
 # Processamento paralelo
@@ -261,7 +261,7 @@ cl <- makeCluster(detectCores()) # number of cores in computer
 registerDoParallel(cl)
 getDoParWorkers() 
 
-# Alocação de memória especial
+# AlocaÃ§Ã£o de memÃ³ria especial
 memory.limit(10000000)                     
 
 
@@ -270,10 +270,10 @@ sppModelOut.PA.10000 <- BIOMOD_Modeling(
 	sppBiomodData.PA.10000, 
 	models = c("GLM","GAM","ANN","SRE","FDA","MARS","MAXENT.Phillips"), 
 	models.options = myBiomodOption, 
-	NbRunEval = 10, #número de repetições para cada algoritmo
+	NbRunEval = 10, #nÃºmero de repetiÃ§Ãµes para cada algoritmo
 	DataSplit = 70, #percentagem de pts para treino.
 	Prevalence = NULL, 
-	VarImport = 0, #caso queira avaliar a importância das variáveis, mudar para 10 ou 100 permutações
+	VarImport = 0, #caso queira avaliar a importÃ¢ncia das variÃ¡veis, mudar para 10 ou 100 permutaÃ§Ãµes
 	models.eval.meth = c("TSS","ROC"),
 	SaveObj = TRUE,
 	rescal.all.models = FALSE,
@@ -287,11 +287,11 @@ sppModelOut.PA.10000
 ## EVALUATE MODELS USING BIOMOD2 ##
 ###################################
 
-# Sobre as métricas avaliativas, 
+# Sobre as mÃ©tricas avaliativas, 
 # ver http://www.cawcr.gov.au/projects/verification/#Methods_for_dichotomous_forecasts
 
 
-# Avaliação dos Modelos
+# AvaliaÃ§Ã£o dos Modelos
 sppModelEval.PA.equal <- get_evaluations(sppModelOut.PA.equal)#GBM, CTA e RF
 sppModelEval.PA.equal
 write.table(sppModelEval.PA.equal, "EvaluationsAll_1.csv")
@@ -300,7 +300,7 @@ sppModelEval.PA.10000
 write.table(sppModelEval.PA.10000, "EvaluationsAll_2.csv")
 
 
-# Sumarizando as métricas avaliativas
+# Sumarizando as mÃ©tricas avaliativas
 sdm.models1 <- c("GBM","CTA","RF") #3 models
 sdm.models1
 eval.methods1 <- c("TSS","ROC") #2 evaluation methods
@@ -379,7 +379,7 @@ write.table(summary.eval.10000,"Models2_Evaluation_SD.csv")
 
 
 ###############################
-## PRODUZINDO AS PROJEÇÕES ##
+## PRODUZINDO AS PROJEÃ‡Ã•ES ##
 ###############################
 
 memory.limit(1000000)
@@ -401,16 +401,16 @@ spp.projections_2 <- BIOMOD_Projection(
 
 
 
-### Definir diretório onde está o arquivo proj_Cur1_presente_Occurrence.grd
+### Definir diretÃ³rio onde estÃ¡ o arquivo proj_Cur1_presente_Occurrence.grd
 projections_1 <-stack("./Occurrence/proj_Cur1_presente/proj_Cur1_presente_Occurrence.grd")
 names(projections_1)
 
-### Definir diretório onde está o arquivo proj_Cur2_presente_Occurrence.grd
+### Definir diretÃ³rio onde estÃ¡ o arquivo proj_Cur2_presente_Occurrence.grd
 projections_2 <-stack("./Occurrence/proj_Cur2_presente/proj_Cur2_presente_Occurrence.grd")
 names(projections_2)
 
 
-### Modelos médios para cada algoritmo: #Só rodar para os algoritmos previamente selecionados
+### Modelos mÃ©dios para cada algoritmo: #SÃ³ rodar para os algoritmos previamente selecionados
 projections.RF.all <- subset(projections_1, grep("RF", names(projections_1)))
 projections.RF.mean <- mean(projections.RF.all)/10
 #plot(projections.RF.mean, col = matlab.like(100), main = "RF - Current Climate", las = 1)
@@ -453,16 +453,16 @@ projections.MAXENT.mean <- mean(projections.MAXENT.all)/10
 
 
 #########################################
-# Consenso entre as Projeções Contínuas #
+# Consenso entre as ProjeÃ§Ãµes ContÃ­nuas #
 #########################################
 
 
 #Manter apenas os algoritmos selecionados
-#O denominador deve corresponder ao número de algoritmos selecionados
+#O denominador deve corresponder ao nÃºmero de algoritmos selecionados
 projections.all.mean <- mean(projections.RF.mean + projections.GBM.mean + projections.CTA.mean + projections.GLM.mean +
 	projections.ANN.mean + projections.GAM.mean + projections.SRE.mean + projections.MARS.mean + projections.FDA.mean + projections.MAXENT.mean)/10 
 
-#Os 3 comandos abaixo devem ser dados de uma só vez
+#Os 3 comandos abaixo devem ser dados de uma sÃ³ vez
 #windows(w=6, h=6)
 #plot(projections.all.mean, col = matlab.like(100), main = "Ensemble - Current Climate", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
@@ -472,7 +472,7 @@ writeRaster(projections.all.mean, filename="Ensemble - Current Climate.asc", for
 
 
 ###############################################################
-### Construção dos mapas binários a partir do ROC Threshold ###
+### ConstruÃ§Ã£o dos mapas binÃ¡rios a partir do ROC Threshold ###
 ###############################################################
 
 (scores_equal <- get_evaluations(sppModelOut.PA.equal))
@@ -554,7 +554,7 @@ write.table(th_MAXENT.Phillips, "scores_ROC_MAXENT.Phillips_.csv")
 
 
 ###############################
-# Converter em mapas binários #
+# Converter em mapas binÃ¡rios #
 ###############################
 projections.binary.CTA.mean <- BinaryTransformation(projections.CTA.mean, th_CTA) #Calcular th
 class(projections.binary.CTA.mean)
@@ -639,7 +639,7 @@ writeRaster(projections.binary.SRE.mean, filename="Ensemble - Current Climate_SR
 
 
 ########################################
-# Consenso entre as Projeções Binárias #
+# Consenso entre as ProjeÃ§Ãµes BinÃ¡rias #
 ########################################
 
 # Mantenha somente os algoritmos selecionados
@@ -675,12 +675,12 @@ bio50.85_CC <- list.files("./Environmental Layers/CHELSA_Future/CCSM4", pattern=
 bio50.85_CC
 bio50.85_CC <- stack(bio50.85_CC)
 environment50.85_CC <- rescale(bio50.85_CC)
-names(environment50.85_CC) #Atenção a esta sequência!
+names(environment50.85_CC) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_CC)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_CC)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_CC)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_CC)
 
 ###GCM2: CMCC_CM
@@ -694,12 +694,12 @@ bio50.85_CM <- list.files("./Environmental Layers/CHELSA_Future/CMCC", pattern="
 bio50.85_CM
 bio50.85_CM <- stack(bio50.85_CM)
 environment50.85_CM <- rescale(bio50.85_CM)
-names(environment50.85_CM) #Atenção a esta sequência!
+names(environment50.85_CM) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_CM)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_CM)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_CM)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_CM)
 
 ###GCM 3: CSIRO_Mk3
@@ -713,12 +713,12 @@ bio50.85_CS <- list.files("./Environmental Layers/CHELSA_Future/CSIRO", pattern=
 bio50.85_CS
 bio50.85_CS <- stack(bio50.85_CS)
 environment50.85_CS <- rescale(bio50.85_CS)
-names(environment50.85_CS) #Atenção a esta sequência!
+names(environment50.85_CS) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_CS)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_CS)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_CS)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_CS)
 
 ###GCM 4: FGOALSg2
@@ -733,12 +733,12 @@ bio50.85_FG <- list.files("./Environmental Layers/CHELSA_Future/FGOALS", pattern
 bio50.85_FG
 bio50.85_FG <- stack(bio50.85_FG)
 environment50.85_FG <- rescale(bio50.85_FG)
-names(environment50.85_FG) #Atenção a esta sequência!
+names(environment50.85_FG) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_FG)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_FG)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_FG)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_FG)
 
 ###GCM5: GFDL_CM3
@@ -753,12 +753,12 @@ bio50.85_GF <- list.files("./Environmental Layers/CHELSA_Future/GFDL", pattern="
 bio50.85_GF
 bio50.85_GF <- stack(bio50.85_GF)
 environment50.85_GF <- rescale(bio50.85_GF)
-names(environment50.85_GF) #Atenção a esta sequência!
+names(environment50.85_GF) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_GF)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_GF)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_GF)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_GF)
 
 #GCM 6: HadGEM2
@@ -773,12 +773,12 @@ bio50.85_HG <- list.files("./Environmental Layers/CHELSA_Future/HadGEM2", patter
 bio50.85_HG
 bio50.85_HG <- stack(bio50.85_HG)
 environment50.85_HG <- rescale(bio50.85_HG)
-names(environment50.85_HG) #Atenção a esta sequência!
+names(environment50.85_HG) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_HG)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_BC)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_BC)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_HG)
 
 #GCM 7: IPSL
@@ -793,12 +793,12 @@ bio50.85_IP <- list.files("./Environmental Layers/CHELSA_Future/IPSL", pattern="
 bio50.85_IP
 bio50.85_IP <- stack(bio50.85_IP)
 environment50.85_IP <- rescale(bio50.85_IP)
-names(environment50.85_IP) #Atenção a esta sequência!
+names(environment50.85_IP) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_IP)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_MR)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_MR)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_IP)
 
 ###GCM 8: MIROC5
@@ -812,12 +812,12 @@ bio50.85_MC <- list.files("./Environmental Layers/CHELSA_Future/MIROC5", pattern
 bio50.85_MC
 bio50.85_MC <- stack(bio50.85_MC)
 environment50.85_MC <- rescale(bio50.85_MC)
-names(environment50.85_MC) #Atenção a esta sequência!
+names(environment50.85_MC) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_MC)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_BC)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_BC)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_MC)
 
 #GCM 9: MIROC-ESM
@@ -832,16 +832,16 @@ bio50.85_MR <- list.files("./Environmental Layers/CHELSA_Future/MIROC_ESM", patt
 bio50.85_MR
 bio50.85_MR <- stack(bio50.85_MR)
 environment50.85_MR <- rescale(bio50.85_MR)
-names(environment50.85_MR) #Atenção a esta sequência!
+names(environment50.85_MR) #AtenÃ§Ã£o a esta sequÃªncia!
 names(environment50.85_MR)=c("bio01","bio02","bio03", "bio04","bio05",
 			"bio06","bio07", "bio08","bio09", "bio10","bio11",
 			"bio12","bio13","bio14", "bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com "names(environment50.85_MR)".
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Confira atentamente se a sequÃªncia "bate" com "names(environment50.85_MR)".
+###AtenÃ§Ã£o: se vocÃª errar no comando acima, todo o restante da modelagem ficarÃ¡ comprometida!
 #plot(environment50.85_MR)
 
 
-# Subset environmental stack for future scenarios (Aqui, inclua somente as variáveis selecionadas)
+# Subset environmental stack for future scenarios (Aqui, inclua somente as variÃ¡veis selecionadas)
 env50.85.selected_CC <- subset(environment50.85_CC, c(names(env.selected)))
 env50.85.selected_CM <- subset(environment50.85_CM, c(names(env.selected)))
 env50.85.selected_CS <- subset(environment50.85_CS, c(names(env.selected)))
@@ -1046,7 +1046,7 @@ names(projections.2050.rcp85_2_MR)
 
 
 
-### Modelos médios para cada algoritmo:
+### Modelos mÃ©dios para cada algoritmo:
 #CC
 projections.RF.all.2050.rcp85_CC <- subset(projections.2050.rcp85_1_CC, grep("RF", names(projections.2050.rcp85_1_CC)))
 projections.RF.mean.2050.rcp85_CC <- mean(projections.RF.all.2050.rcp85_CC)/10
@@ -1343,7 +1343,7 @@ projections.MAXENT.mean.2050.rcp85_MR <- mean(projections.MAXENT.all.2050.rcp85_
 
 
 ##############################################################
-####### CONSENSO MÉDIO ENTRE OS ALGORITMOS SELECIONADOS ######
+####### CONSENSO MÃ‰DIO ENTRE OS ALGORITMOS SELECIONADOS ######
 ##############################################################
 #GCMs: CC, CM, CS, FG, GF, HG, IP, MC, MR
 
@@ -2018,7 +2018,7 @@ writeRaster(projections.binary.mean_2050.rcp85, filename="Future Climate_binary_
 
 
 
-### Daqui em diante, não proceder por enquanto.
+### Daqui em diante, nÃ£o proceder por enquanto.
 
 ################################################################################################################################################
 ################################################################################################################################################
@@ -2152,7 +2152,7 @@ proj.only.cer <- mask(projections.RF.mean.binary, dis.cerrado)
 plot(proj.only.cer)
 
 ## Cerrado Remanescent Layer 
-## With remaining "Tatá"
+## With remaining "TatÃ¡"
 reman.cer.2010 <- readOGR("C:/Users/Vitor HGL Cavalcante/Documents/GitHub/Extinction-risk-Micrablepharus-atticolus/Remanescentes_biomas/REMANESCENTE_CERRADO_2010",
                           "Remanescente_Cerrado_2010")
 plot(reman.cer.2010)
