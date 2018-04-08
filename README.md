@@ -1,1 +1,1 @@
-Habitat Suitability Models with projections for 2050 (rcp 8.5)
+Climate Suitability Models with projections for 2050 (rcp 8.5)
