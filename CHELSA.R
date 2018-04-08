@@ -1,39 +1,39 @@
 #######################################
-## DEFININDO O DIRETÓRIO DE TRABALHO ##
+## DEFINING THE WORK DIRECTORY ##
 #######################################
 
-#Para seguir essa rotina, é necessário que:
-#1) Defina-se uma pasta denominada "Habitat Suitability Models" como diretório.
-#2) Dentro de Habitat Suitability Models", incluam-se as seguintes pastas e subpastas:
+#In order to follow this routine, you should:
+#1) Assign a folder named "Habitat Suitability Models" as your work directory.
+#2) Inside "Habitat Suitability Models", please include the following sub-folders:
 #2.1) Environmental Layers
 #2.1.1) CHELSA.
 #2.1.2) CHELSA_Future.
 #2.2) Shapefiles.
-#Caso você queira o conteúdo completo dessas pastas, favor entrar em contato comigo (pedro.eisenlohr@unemat.br).
+#If you wish the full files of the abovementioned folders, please contact me (pedro.eisenlohr@unemat.br).
 
 
 
-setwd(choose.dir()) #Defina a pasta Habitat Suitability Models
+setwd(choose.dir()) #Define the folder Habitat Suitability Models
 getwd()
-dir() #Dentre as pastas, DEVE haver "Environmental Layers" e "Shapefiles"
+dir() #Among your folders, there should be "Environmental Layers" and "Shapefiles"
 
 
 
-### Sempre que necessário:
-# Processamento paralelo
+### Whenever necessary:
+# Parallel processing
 #cl <- makeCluster(detectCores()) # number of cores in computer
 #registerDoParallel(cl)
 #getDoParWorkers()
 
-# Aumento da alocação de memória
-#memory.limit(10000000000) # ou algum outro valor de memória (em kB)
+# Enhance memory
+#memory.limit(10000000000) #or any other memory value (in kB)
 
 
 
 
-########################################
-## INSTALANDO E CARREGANDO OS PACOTES ##
-########################################
+############################################
+## INSTALLING AND UPLOADING THE PACKAGES ###
+############################################
 
 #install.packages("biomod2", dep=T)
 #install.packages("car", dep=T)
@@ -72,11 +72,11 @@ library(sdmvspecies)
 
 
 
-####################################
-## IMPORTANDO E CHECANDO OS DADOS ##
-####################################
+######################################
+## IMPORTING AND CHECKING YOUR DATA ##
+######################################
 
-# Importando dados climáticos do presente
+# Importing current climate data
 bio.crop <- list.files("./Environmental layers/CHELSA", full.names=TRUE, pattern=".grd")
 bio.crop
 bio.crop <- stack(bio.crop)
@@ -88,38 +88,38 @@ res(bio.crop)
 neotrop <- readOGR("./Shapefiles/ShapeNeo/neotropic.shp")
 domains <- readOGR("./Shapefiles/Shape_Dominios/Dominio_AbSaber.shp")
 
-# Padronizando a escala das variáveis climáticas (0-1)
+# Standardizing the scale of climate variables (0-1)
 bio.crop <- rescale(bio.crop)
 
-# Checando bio.crop
-bio.crop #Observe atentamente esta sequência!
+# Checking the object 'bio.crop'
+bio.crop #Be attention to this sequence!
 names(bio.crop)=c("bio01","bio02","bio03","bio04","bio05","bio06","bio07",
 			"bio08","bio09","bio10","bio11","bio12","bio13","bio14",
 			"bio15","bio16","bio17","bio18","bio19")
-###Confira atentamente se a sequência "bate" com bio.crop
-###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
+###Check carefully if this sequence matches with 'bio.crop'.
+###Attention: if you commit a mistake here, further modelling will result in errors!
 #plot(bio.crop)
 
-# Importando dados bióticos
+# Importing biotic data
 spp<-read.table(file.choose(),row.names=1,header=T,sep=",")
 dim(spp)
 edit(spp)
 
-# Diagnosticando possíveis problemas com a matriz biótica:
+# Diagnosing possible problems with biotic data:
 csum <- colSums(spp) 
 any(is.na(csum)) 
-### Se aparecer [FALSE], está tudo certo. Se não, siga os dois passos abaixo.
+### If [FALSE], that's all right. If [TRUE], follow the steps below to detect where you will need to make adjustments.
 #which(is.na(csum)) 
-#summary(spp[, c("x")]) # substitua 'x' pelo nome da coluna
+#summary(spp[, c("x")]) # change 'x' by the column name
 
-# Selecionado pontos espacialmente únicos #
+# Selecting unique records points #
 mask <- bio.crop[[1]]
 cell <- cellFromXY(mask, spp[,1:2]) # get the cell number for each point
 dup <- duplicated(cbind(spp[,1:2],cell))
 spp <- spp[!dup, ]# select the records that are not duplicated
 dim(spp)
 
-# Visualindo os dados de ocorrência da espécie no mapa #Dê os 3 comandos de uma vez
+# Visualizing occurrence records in a map
 data(wrld_simpl)
 plot(wrld_simpl, xlim=c(-85, -35), ylim=c(-55, 50), col="lightgray", axes=TRUE)
 points(spp$long, spp$lat, col="black", bg="red", pch=21, cex=1.5, lwd=1.5)
