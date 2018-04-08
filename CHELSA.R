@@ -1,3 +1,10 @@
+# Dear Researcher,
+# I am translating the comments of this code to English.
+# If you have any suggestion, please contact me: pedro.eisenlohr@unemat.br
+# Enjoy it!
+# Pedro V. Eisenlohr - UNEMAT, Alta Floresta/MT
+
+
 #######################################
 ## DEFINING THE WORK DIRECTORY ##
 #######################################
@@ -125,38 +132,38 @@ plot(wrld_simpl, xlim=c(-85, -35), ylim=c(-55, 50), col="lightgray", axes=TRUE)
 points(spp$long, spp$lat, col="black", bg="red", pch=21, cex=1.5, lwd=1.5)
 
 
-#####################################################
-## PRIMEIRO PASSO DE VERIFICAÇÃO DE COLINEARIDADES ##
-#####################################################
+######################################################
+## FIRST STEP OF CHECKING AND REMOVING COLLINEARIES ##
+######################################################
 
-# Obtendo os dados climáticos para os pontos de ocorrência
+# Getting the climatic data for the points of occurrence
 presvals <- extract(bio.crop, spp)
 
 # PCA
 pca <- PCA(presvals,graph=FALSE)
 #plot(pca, choix="var")
 
-# Detectando e removendo colinearidades
+# Detecting and removing collinearities
 v1 <- vifcor(presvals, th=0.8)
 v1
-### Confira se nenhuma variável apresenta VIF>10
-# Se alguma variável apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
+### Check if no variable has VIF> 10
+# If any variable has VIF> 10, reduce the 'th' above and check the VIF again.
 
 bio.crop2 <- exclude(bio.crop, v1) 
-#Se quiser excluir variáveis manualmente:
-#bio.crop2 <- dropLayer(bio.crop, c(n1,n2,n3))#n1,n2,n3=variáveis a serem removidas (inclua apenas o número de ordem)
+#If you want to delete variables manually:
+#bio.crop2 <- dropLayer(bio.crop, c(n1,n2,n3))  # n1,n2,n3 = variables to be removed (include only the order number)
 bio.crop2
 names(bio.crop2)
 
 
-####################################################
-## SEGUNDO PASSO DE VERIFICAÇÃO DE COLINEARIDADES ##
-####################################################
+#######################################################
+## SECOND STEP OF CHECKING AND REMOVING COLLINEARIES ##
+#######################################################
 
-# Selecionando 10000 pontos aleatórios ao longo do Neotrópico
+# Selecting 10,000 random points
 mask <- bio.crop$bio01 
 rnd.points <- randomPoints(mask, 10000)
-#plot(!is.na(mask), legend = F)#Dê este comando juntamente com o próximo.
+#plot(!is.na(mask), legend = F)
 #points(rnd.points, cex = 0.5)
 
 # Principal Components Analysis (PCA) 
@@ -164,44 +171,42 @@ env.data <- extract(bio.crop2, rnd.points)
 pca.env.data <- princomp(env.data, cor = T)
 #biplot(pca.env.data, pc.biplot = T)
 
-# Detectando e removendo colinearidades
+# Detecting and removing collinearities
 v1 <- vifcor(env.data, th=0.8)
 v1
-### Confira se nenhuma variável apresenta VIF>10
-# Se alguma variável apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
+### Check if no variable has VIF> 10
+# If any variable has VIF> 10, reduce the 'th' above and check the VIF again.
 
 env.selected <- exclude(bio.crop2, v1) #exclude collinear variables identified with vifcor 
 env.selected <- stack(env.selected)
 names(env.selected)
 
 
-################################################
-## GENERATING OTHER REQUIRED OBJECTS FOR SDM ###
-################################################
+######################################################
+## GENERATING OTHER REQUIRED OBJECTS FOR MODELLING ###
+######################################################
 
 # Convert dataset to SpatialPointsDataFrame (only presences)
-myRespXY <- spp[,c("long","lat")] #Caso dê algum erro aqui, veja como você intitulou as colunas da sua matriz.
+myRespXY <- spp[,c("long","lat")] #If there is some message error here, please check how you titled the columns of your matrix.
 # Creating occurrence data object
 occurrence.resp <-  rep(1, length(myRespXY$long))
 
 
-############################################
-## FIT SPECIES DISTRIBUTION MODELS - SDMS ##
-############################################
+##############################################################################
+###### FINAL PREPARATION FOR CLIMATE SUITABILITY MODELS: FORMATING DATA ######
+##############################################################################
 
-### Ajuste abaixo apenas o PA.nb.absences
 sppBiomodData.PA.equal <- BIOMOD_FormatingData(
 	resp.var = occurrence.resp,
 	expl.var = env.selected,
 	resp.xy = myRespXY,
 	resp.name = "Occurrence",
-	PA.nb.rep = 1, #número de datasets de pseudoausências
-	PA.nb.absences = ***, # ***= número de pseudoausências = número de pontos espacialmente únicos
+	PA.nb.rep = 1, #number of pseudo-absence datasets
+	PA.nb.absences = ***, # ***= number of pseudo-absences = number of spatially unique points (see Barbet-Massin et al. 2012)
 	PA.strategy = "disk")
 sppBiomodData.PA.equal
 
 
-#Não fazer ajustes abaixo:
 sppBiomodData.PA.10000 <- BIOMOD_FormatingData(
 	resp.var = occurrence.resp,
 	expl.var = env.selected,
@@ -213,7 +218,7 @@ sppBiomodData.PA.10000 <- BIOMOD_FormatingData(
 sppBiomodData.PA.10000
 
 
-#Baixar o Maxent
+#Download Maxent
 # MaxEnt .jar
 #  jar <- paste0(system.file(package = "dismo"), "/java/maxent.jar")
 #  if (file.exists(jar) != T) {
@@ -225,17 +230,16 @@ sppBiomodData.PA.10000
 #  } 
 system.file("java", package = "dismo")
 
-# Abaixo, defina o diretório exatamente como mostrado após o comando acima
-myBiomodOption <- BIOMOD_ModelingOptions(MAXENT.Phillips = list(path_to_maxent.jar="C:/Users/Laboratorio/Documents/R/win-library/3.4/dismo/java"))
+# Below, set the directory exactly as shown after the above command
+myBiomodOption <- BIOMOD_ModelingOptions(MAXENT.Phillips = list(path_to_maxent.jar="C:/Users/Documents/R/win-library/3.4/dismo/java"))
 
 
 
 
-#################
-### Modelagem ###
-#################
+############################################
+###### FIT CLIMATE SUITABILITY MODELS ######
+############################################
 
-# Com partição treino x teste:
 sppModelOut.PA.equal <- BIOMOD_Modeling(sppBiomodData.PA.equal, 
 	models = c("GBM", "CTA", "RF"), 
 	models.options = NULL,
