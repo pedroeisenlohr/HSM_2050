@@ -18,29 +18,23 @@
 #2.2) Shapefiles.
 #If you wish the full files of the abovementioned folders, please contact me (pedro.eisenlohr@unemat.br).
 
-
-
-setwd(choose.dir()) #Define the folder Habitat Suitability Models
+setwd(choose.dir()) #Defina a pasta Habitat Suitability Models
 getwd()
-dir() #Among your folders, there should be "Environmental Layers" and "Shapefiles"
+dir() #Dentre as pastas, DEVE haver "Environmental Layers" e "Shapefiles"
 
-
-
-### Whenever necessary:
-# Parallel processing
+### Sempre que necessário:
+# Processamento paralelo
 #cl <- makeCluster(detectCores()) # number of cores in computer
 #registerDoParallel(cl)
 #getDoParWorkers()
 
-# Enhance memory
-#memory.limit(10000000000) #or any other memory value (in kB)
+# Aumento da alocação de memória
+memory.limit(10000000000) # ou algum outro valor de memória (em kB)
 
 
-
-
-############################################
-## INSTALLING AND UPLOADING THE PACKAGES ###
-############################################
+########################################
+## INSTALANDO E CARREGANDO OS PACOTES ##
+########################################
 
 #install.packages("biomod2", dep=T)
 #install.packages("car", dep=T)
@@ -78,12 +72,24 @@ library(raster)
 library(sdmvspecies)
 
 
+##MUDAR DIRETÓRIO DE ARQUIVOS TEMPORÁRIOS DO raster
+## define the name of a temp directory where raster tmp files will be stored
+raster_tmp_dir <- "raster_tmp"
+## create the directory
+dir.create(raster_tmp_dir, showWarnings = F, recursive = T)
 
-######################################
-## IMPORTING AND CHECKING YOUR DATA ##
-######################################
+## set raster options
+rasterOptions(tmpdir = raster_tmp_dir)
+#Caso o PC desligue sem que você tenha concluído a modelagem,
+#dê o comando acima antes de retomar a rotina.
 
-# Importing current climate data
+
+
+####################################
+## IMPORTANDO E CHECANDO OS DADOS ##
+####################################
+
+# Importando dados climáticos do presente
 bio.crop <- list.files("./Environmental layers/CHELSA", full.names=TRUE, pattern=".grd")
 bio.crop
 bio.crop <- stack(bio.crop)
@@ -95,75 +101,75 @@ res(bio.crop)
 neotrop <- readOGR("./Shapefiles/ShapeNeo/neotropic.shp")
 domains <- readOGR("./Shapefiles/Shape_Dominios/Dominio_AbSaber.shp")
 
-# Standardizing the scale of climate variables (0-1)
+# Padronizando a escala das variáveis climáticas (0-1)
 bio.crop <- rescale(bio.crop)
 
-# Checking the object 'bio.crop'
-bio.crop #Be attention to this sequence!
+# Checando bio.crop
+bio.crop #Observe atentamente esta sequência!
 names(bio.crop)=c("bio01","bio02","bio03","bio04","bio05","bio06","bio07",
 			"bio08","bio09","bio10","bio11","bio12","bio13","bio14",
 			"bio15","bio16","bio17","bio18","bio19")
-###Check carefully if this sequence matches with 'bio.crop'.
-###Attention: if you commit a mistake here, further modelling will result in errors!
+###Confira atentamente se a sequência "bate" com bio.crop
+###Atenção: se você errar no comando acima, todo o restante da modelagem ficará comprometida!
 #plot(bio.crop)
 
-# Importing biotic data
+# Importando dados bióticos
 spp<-read.table(file.choose(),row.names=1,header=T,sep=",")
 dim(spp)
 edit(spp)
 
-# Diagnosing possible problems with biotic data:
+# Diagnosticando possíveis problemas com a matriz biótica:
 csum <- colSums(spp) 
 any(is.na(csum)) 
-### If [FALSE], that's all right. If [TRUE], follow the steps below to detect where you will need to make adjustments.
+### Se aparecer [FALSE], está tudo certo. Se não, siga os dois passos abaixo.
 #which(is.na(csum)) 
-#summary(spp[, c("x")]) # change 'x' by the column name
+#summary(spp[, c("x")]) # substitua 'x' pelo nome da coluna
 
-# Selecting unique records points #
+# Selecionado pontos espacialmente únicos #
 mask <- bio.crop[[1]]
 cell <- cellFromXY(mask, spp[,1:2]) # get the cell number for each point
 dup <- duplicated(cbind(spp[,1:2],cell))
 spp <- spp[!dup, ]# select the records that are not duplicated
 dim(spp)
 
-# Visualizing occurrence records in a map
+# Visualindo os dados de ocorrência da espécie no mapa #Dê os 3 comandos de uma vez
 data(wrld_simpl)
 plot(wrld_simpl, xlim=c(-85, -35), ylim=c(-55, 50), col="lightgray", axes=TRUE)
 points(spp$long, spp$lat, col="black", bg="red", pch=21, cex=1.5, lwd=1.5)
 
 
-######################################################
-## FIRST STEP OF CHECKING AND REMOVING COLLINEARIES ##
-######################################################
+#####################################################
+## PRIMEIRO PASSO DE VERIFICAÇÃO DE COLINEARIDADES ##
+#####################################################
 
-# Getting the climatic data for the points of occurrence
+# Obtendo os dados climáticos para os pontos de ocorrência
 presvals <- extract(bio.crop, spp)
 
 # PCA
-pca <- PCA(presvals,graph=FALSE)
+#pca <- PCA(presvals,graph=FALSE)
 #plot(pca, choix="var")
 
-# Detecting and removing collinearities
+# Detectando e removendo colinearidades
 v1 <- vifcor(presvals, th=0.8)
 v1
-### Check if no variable has VIF> 10
-# If any variable has VIF> 10, reduce the 'th' above and check the VIF again.
+### Confira se nenhuma variável apresenta VIF>10
+# Se alguma variável apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
 
 bio.crop2 <- exclude(bio.crop, v1) 
-#If you want to delete variables manually:
-#bio.crop2 <- dropLayer(bio.crop, c(n1,n2,n3))  # n1,n2,n3 = variables to be removed (include only the order number)
+#Se quiser excluir variáveis manualmente:
+#bio.crop2 <- dropLayer(bio.crop, c(n1,n2,n3))#n1,n2,n3=variáveis a serem removidas (inclua apenas o número de ordem)
 bio.crop2
 names(bio.crop2)
 
 
-#######################################################
-## SECOND STEP OF CHECKING AND REMOVING COLLINEARIES ##
-#######################################################
+####################################################
+## SEGUNDO PASSO DE VERIFICAÇÃO DE COLINEARIDADES ##
+####################################################
 
-# Selecting 10,000 random points
+# Selecionando 10000 pontos aleatórios ao longo do Neotrópico
 mask <- bio.crop$bio01 
 rnd.points <- randomPoints(mask, 10000)
-#plot(!is.na(mask), legend = F)
+#plot(!is.na(mask), legend = F)#Dê este comando juntamente com o próximo.
 #points(rnd.points, cex = 0.5)
 
 # Principal Components Analysis (PCA) 
@@ -171,42 +177,48 @@ env.data <- extract(bio.crop2, rnd.points)
 pca.env.data <- princomp(env.data, cor = T)
 #biplot(pca.env.data, pc.biplot = T)
 
-# Detecting and removing collinearities
+# Detectando e removendo colinearidades
 v1 <- vifcor(env.data, th=0.8)
 v1
-### Check if no variable has VIF> 10
-# If any variable has VIF> 10, reduce the 'th' above and check the VIF again.
+### Confira se nenhuma variável apresenta VIF>10
+# Se alguma variável apresentar VIF>10, reduza o 'th' acima e confira o VIF novamente.
 
 env.selected <- exclude(bio.crop2, v1) #exclude collinear variables identified with vifcor 
 env.selected <- stack(env.selected)
 names(env.selected)
 
 
-######################################################
-## GENERATING OTHER REQUIRED OBJECTS FOR MODELLING ###
-######################################################
+################################################
+## GENERATING OTHER REQUIRED OBJECTS FOR SDM ###
+################################################
 
 # Convert dataset to SpatialPointsDataFrame (only presences)
-myRespXY <- spp[,c("long","lat")] #If there is some message error here, please check how you titled the columns of your matrix.
+myRespXY <- spp[,c("long","lat")] #Caso dê algum erro aqui, veja como você intitulou as colunas da sua matriz.
 # Creating occurrence data object
 occurrence.resp <-  rep(1, length(myRespXY$long))
 
 
-##############################################################################
-###### FINAL PREPARATION FOR CLIMATE SUITABILITY MODELS: FORMATING DATA ######
-##############################################################################
+############################################
+## FIT SPECIES DISTRIBUTION MODELS - SDMS ##
+############################################
 
+dim(spp)
+PA.number <- length(spp[,1])
+PA.number
+
+### Ajuste abaixo apenas o PA.nb.absences
 sppBiomodData.PA.equal <- BIOMOD_FormatingData(
 	resp.var = occurrence.resp,
 	expl.var = env.selected,
 	resp.xy = myRespXY,
 	resp.name = "Occurrence",
-	PA.nb.rep = 1, #number of pseudo-absence datasets
-	PA.nb.absences = ***, # ***= number of pseudo-absences = number of spatially unique points (see Barbet-Massin et al. 2012)
+	PA.nb.rep = 1, #número de datasets de pseudoausências
+	PA.nb.absences = PA.number, #= número de pseudoausências = número de pontos espacialmente únicos
 	PA.strategy = "disk")
 sppBiomodData.PA.equal
 
 
+#Não fazer ajustes abaixo:
 sppBiomodData.PA.10000 <- BIOMOD_FormatingData(
 	resp.var = occurrence.resp,
 	expl.var = env.selected,
@@ -218,7 +230,7 @@ sppBiomodData.PA.10000 <- BIOMOD_FormatingData(
 sppBiomodData.PA.10000
 
 
-#Download Maxent
+#Baixar o Maxent (Apenas rode a funcao abaixo se você não tiver baixado o Maxent)
 # MaxEnt .jar
 #  jar <- paste0(system.file(package = "dismo"), "/java/maxent.jar")
 #  if (file.exists(jar) != T) {
@@ -228,18 +240,18 @@ sppBiomodData.PA.10000
 #    unlink("maxent.zip")
 #    warning("Maxent foi colocado no diretório")
 #  } 
-system.file("java", package = "dismo")
+#system.file("java", package = "dismo")
 
-# Below, set the directory exactly as shown after the above command
-myBiomodOption <- BIOMOD_ModelingOptions(MAXENT.Phillips = list(path_to_maxent.jar="C:/Users/Documents/R/win-library/3.4/dismo/java"))
-
+myBiomodOption <- BIOMOD_ModelingOptions(MAXENT.Phillips = list(path_to_maxent.jar=paste0(system.file(package = "dismo"), "/java/maxent.jar")))
 
 
 
-############################################
-###### FIT CLIMATE SUITABILITY MODELS ######
-############################################
 
+#################
+### Modelagem ###
+#################
+
+# Com partição treino x teste:
 sppModelOut.PA.equal <- BIOMOD_Modeling(sppBiomodData.PA.equal, 
 	models = c("GBM", "CTA", "RF"), 
 	models.options = NULL,
@@ -285,6 +297,8 @@ sppModelOut.PA.10000 <- BIOMOD_Modeling(
 	modeling.id = "spp_presente")
 sppModelOut.PA.10000
 
+
+save.image()
 
 
 ###################################
@@ -403,7 +417,7 @@ spp.projections_2 <- BIOMOD_Projection(
 	output.format = ".grd")
 
 
-
+save.image()
 
 ### Definir diretório onde está o arquivo proj_Cur1_presente_Occurrence.grd
 projections_1 <-stack("./Occurrence/proj_Cur1_presente/proj_Cur1_presente_Occurrence.grd")
@@ -418,48 +432,57 @@ names(projections_2)
 projections.RF.all <- subset(projections_1, grep("RF", names(projections_1)))
 projections.RF.mean <- mean(projections.RF.all)/10
 #plot(projections.RF.mean, col = matlab.like(100), main = "RF - Current Climate", las = 1)
+writeRaster(projections.RF.mean, filename="Ensemble - Current Climate_RF.asc", formato="ascii")
 
 projections.GBM.all <-subset(projections_1, grep("GBM", names(projections_1)))
 projections.GBM.mean <- mean(projections.GBM.all)/10
 #plot(projections.GBM.mean, col = matlab.like(100), main = "GBM - Current Climate", las = 1)
+writeRaster(projections.GBM.mean, filename="Ensemble - Current Climate_GBM.asc", formato="ascii")
 
 projections.CTA.all <-subset(projections_1,grep("CTA", names(projections_1)))
 projections.CTA.mean <- mean(projections.CTA.all)/10
 #plot(projections.CTA.mean, col = matlab.like(100), main = "CTA - Current Climate", las = 1)
+writeRaster(projections.CTA.mean, filename="Ensemble - Current Climate_CTA.asc", formato="ascii")
 
 projections.GLM.all <-subset(projections_2,grep("GLM", names(projections_2)))
 projections.GLM.mean <- mean(projections.GLM.all)/10
 #plot(projections.GLM.mean, col = matlab.like(100), main = "GLM - Current Climate", las = 1)
+writeRaster(projections.GLM.mean, filename="Ensemble - Current Climate_GLM.asc", formato="ascii")
 
 projections.GAM.all <-subset(projections_2,grep("GAM", names(projections_2)))
 projections.GAM.mean <- mean(projections.GAM.all)/10
 #plot(projections.GAM.mean, col = matlab.like(100), main = "GAM - Current Climate", las = 1)
+writeRaster(projections.GAM.mean, filename="Ensemble - Current Climate_GAM.asc", formato="ascii")
 
 projections.ANN.all <- subset(projections_2,grep("ANN", names(projections_2)))
 projections.ANN.mean <- mean(projections.ANN.all)/10
 #plot(projections.ANN.mean, col = matlab.like(100), main = "ANN - Current Climate", las = 1)
+writeRaster(projections.ANN.mean, filename="Ensemble - Current Climate_ANN.asc", formato="ascii")
 
 projections.SRE.all <- subset(projections_2,grep("SRE", names(projections_2)))
 projections.SRE.mean <- mean(projections.SRE.all)/10
 #plot(projections.SRE.mean, col = matlab.like(100), main = "SRE - Current Climate", las = 1)
+writeRaster(projections.SRE.mean, filename="Ensemble - Current Climate_SRE.asc", formato="ascii")
 
 projections.MARS.all <- subset(projections_2,grep("MARS", names(projections_2)))
 projections.MARS.mean <- mean(projections.MARS.all)/10
 #plot(projections.MARS.mean, col = matlab.like(100), main = "MARS - Current Climate", las = 1)
+writeRaster(projections.MARS.mean, filename="Ensemble - Current Climate_MARS.asc", formato="ascii")
 
 projections.FDA.all <- subset(projections_2,grep("FDA", names(projections_2)))
 projections.FDA.mean <- mean(projections.FDA.all)/10
 #plot(projections.FDA.mean, col = matlab.like(100), main = "FDA - Current Climate", las = 1)
+writeRaster(projections.FDA.mean, filename="Ensemble - Current Climate_FDA.asc", formato="ascii")
 
 projections.MAXENT.all <- subset(projections_2,grep("MAXENT.Phillips", names(projections_2)))
 projections.MAXENT.mean <- mean(projections.MAXENT.all)/10
 #plot(projections.MAXENT.mean, col = matlab.like(100), main = "MAXENT - Current Climate", las = 1)
+writeRaster(projections.MAXENT.mean, filename="Ensemble - Current Climate_MAXENT.asc", formato="ascii")
 
 
 #########################################
 # Consenso entre as Projeções Contínuas #
 #########################################
-
 
 #Manter apenas os algoritmos selecionados
 #O denominador deve corresponder ao número de algoritmos selecionados
@@ -621,7 +644,7 @@ class(projections.binary.MARS.mean)
 summary(values(projections.binary.MARS.mean))
 #plot(projections.binary.MARS.mean, col = matlab.like(100), main = "Ensemble - Current Climate_MARS", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.MARS.mean, filename="Ensemble - Current Climate_GMARS - BINARY.tif", format="GTiff")
+writeRaster(projections.binary.MARS.mean, filename="Ensemble - Current Climate_MARS - BINARY.tif", format="GTiff")
 writeRaster(projections.binary.MARS.mean, filename="Ensemble - Current Climate_MARS - BINARY.asc", formato="ascii")
 
 projections.binary.MAXENT.mean <- BinaryTransformation(projections.MAXENT.mean, th_MAXENT.Phillips) #Calcular th
@@ -921,6 +944,8 @@ spp.projections.2050.rcp85_2_CS <- BIOMOD_Projection(
 	selected.models = "all",
 	output.format = ".grd")
 
+save.image()
+
 spp.projections.2050.rcp85_1_FG <- BIOMOD_Projection(
 	modeling.output = sppModelOut.PA.equal,
 	new.env = env50.85.selected_FG,
@@ -959,6 +984,8 @@ spp.projections.2050.rcp85_2_HG <- BIOMOD_Projection(
 	proj.name = "2050.rcp85_2_HG",
 	selected.models = "all",
 	output.format = ".grd")
+
+save.image()
 
 spp.projections.2050.rcp85_1_IP <- BIOMOD_Projection(
 	modeling.output = sppModelOut.PA.equal,
@@ -999,7 +1026,7 @@ spp.projections.2050.rcp85_2_MR <- BIOMOD_Projection(
 	selected.models = "all",
 	output.format = ".grd")
 
-
+save.image()
 
 # Stack projections
 projections.2050.rcp85_1_CC <- stack("./Occurrence/proj_2050.rcp85_1_CC/proj_2050.rcp85_1_CC_Occurrence.grd")
@@ -1046,7 +1073,6 @@ projections.2050.rcp85_1_MR <- stack("./Occurrence/proj_2050.rcp85_1_MR/proj_205
 names(projections.2050.rcp85_1_MR)
 projections.2050.rcp85_2_MR <- stack("./Occurrence/proj_2050.rcp85_2_MR/proj_2050.rcp85_2_MR_Occurrence.grd")
 names(projections.2050.rcp85_2_MR)
-
 
 
 
@@ -1307,8 +1333,6 @@ projections.MAXENT.all.2050.rcp85_MC <- subset(projections.2050.rcp85_2_MC,grep(
 projections.MAXENT.mean.2050.rcp85_MC <- mean(projections.MAXENT.all.2050.rcp85_MC)/10
 
 
-
-
 #MR
 projections.RF.all.2050.rcp85_MR <- subset(projections.2050.rcp85_1_MR, grep("RF", names(projections.2050.rcp85_1_MR)))
 projections.RF.mean.2050.rcp85_MR <- mean(projections.RF.all.2050.rcp85_MR)/10
@@ -1341,9 +1365,7 @@ projections.MAXENT.all.2050.rcp85_MR <- subset(projections.2050.rcp85_2_MR,grep(
 projections.MAXENT.mean.2050.rcp85_MR <- mean(projections.MAXENT.all.2050.rcp85_MR)/10
 
 
-
-
-
+save.image()
 
 
 ##############################################################
@@ -1351,12 +1373,13 @@ projections.MAXENT.mean.2050.rcp85_MR <- mean(projections.MAXENT.all.2050.rcp85_
 ##############################################################
 #GCMs: CC, CM, CS, FG, GF, HG, IP, MC, MR
 
+#ATENÇÃO: MANTENHA SOMENTE OS ALGORITMOS SELECIONADOS
+
 
 #CC
 projections.all.mean.2050.rcp85_CC <- mean(projections.RF.mean.2050.rcp85_CC + projections.GBM.mean.2050.rcp85_CC +
 	projections.CTA.mean.2050.rcp85_CC + projections.GLM.mean.2050.rcp85_CC + projections.GAM.mean.2050.rcp85_CC +
-	projections.ANN.mean.2050.rcp85_CC + projections.SRE.mean.2050.rcp85_CC +
-	projections.MARS.mean.2050.rcp85_CC + projections.FDA.mean.2050.rcp85_CC + projections.MAXENT.mean.2050.rcp85_CC)
+	projections.ANN.mean.2050.rcp85_CC + projections.MARS.mean.2050.rcp85_CC + projections.FDA.mean.2050.rcp85_CC + projections.MAXENT.mean.2050.rcp85_CC)
 writeRaster(projections.all.mean.2050.rcp85_CC, filename="Future Climate - 2050_rcp8.5_CC.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_CC, filename="Future Climate - 2050_rcp8.5_CC.asc", format="ascii")
 
@@ -1376,7 +1399,6 @@ projections.all.mean.2050.rcp85_CS <- mean(projections.RF.mean.2050.rcp85_CS + p
 writeRaster(projections.all.mean.2050.rcp85_CS, filename="Future Climate - 2050_rcp8.5_CS.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_CS, filename="Future Climate - 2050_rcp8.5_CS.asc", format="ascii")
 
-
 #FG
 projections.all.mean.2050.rcp85_FG <- mean(projections.RF.mean.2050.rcp85_FG + projections.GBM.mean.2050.rcp85_FG +
 	projections.CTA.mean.2050.rcp85_FG + projections.GLM.mean.2050.rcp85_FG + projections.GAM.mean.2050.rcp85_FG +
@@ -1392,7 +1414,6 @@ projections.all.mean.2050.rcp85_GF <- mean(projections.RF.mean.2050.rcp85_GF + p
 	projections.MARS.mean.2050.rcp85_GF + projections.FDA.mean.2050.rcp85_GF + projections.MAXENT.mean.2050.rcp85_GF)
 writeRaster(projections.all.mean.2050.rcp85_GF, filename="Future Climate - 2050_rcp8.5_GF.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_GF, filename="Future Climate - 2050_rcp8.5_GF.asc", format="ascii")
-
 
 #HG
 projections.all.mean.2050.rcp85_HG <- mean(projections.RF.mean.2050.rcp85_HG + projections.GBM.mean.2050.rcp85_HG +
@@ -1501,11 +1522,11 @@ summary(values(projections.CTA.mean.2050.rcp85_CM_bin))
 
 projections.GBM.mean.2050.rcp85_CM_bin <- BinaryTransformation(projections.GBM.mean.2050.rcp85_CM, th_GBM) #Calcular th
 class(projections.GBM.mean.2050.rcp85_CM_bin)
-summary(values(projections.GBM.mean.2050.rcp85_CN_bin))
+summary(values(projections.GBM.mean.2050.rcp85_CM_bin))
 
 projections.ANN.mean.2050.rcp85_CM_bin <- BinaryTransformation(projections.ANN.mean.2050.rcp85_CM, th_ANN) #Calcular th
 class(projections.ANN.mean.2050.rcp85_CM_bin)
-summary(values(projections.ANN.mean.2050.rcp85_CN_bin))
+summary(values(projections.ANN.mean.2050.rcp85_CM_bin))
 
 projections.FDA.mean.2050.rcp85_CM_bin <- BinaryTransformation(projections.FDA.mean.2050.rcp85_CM, th_FDA) #Calcular th
 class(projections.FDA.mean.2050.rcp85_CM_bin)
@@ -1541,6 +1562,7 @@ projections.binary.mean_2050.rcp85_CM <- mean(projections.ANN.mean.2050.rcp85_CM
 					projections.SRE.mean.2050.rcp85_CM_bin)
 writeRaster(projections.binary.mean_2050.rcp85_CM, filename="Future Climate_binary_2050.rcp85_CM.tif", format="GTiff")
 
+
 ########################
 projections.CTA.mean.2050.rcp85_CS_bin <- BinaryTransformation(projections.CTA.mean.2050.rcp85_CS, th_CTA) #Calcular th
 class(projections.CTA.mean.2050.rcp85_CS_bin)
@@ -1548,7 +1570,7 @@ summary(values(projections.CTA.mean.2050.rcp85_CS_bin))
 
 projections.GBM.mean.2050.rcp85_CS_bin <- BinaryTransformation(projections.GBM.mean.2050.rcp85_CS, th_GBM) #Calcular th
 class(projections.GBM.mean.2050.rcp85_CS_bin)
-summary(values(projections.GBM.mean.2050.rcp85_GS_bin))
+summary(values(projections.GBM.mean.2050.rcp85_CS_bin))
 
 projections.ANN.mean.2050.rcp85_CS_bin <- BinaryTransformation(projections.ANN.mean.2050.rcp85_CS, th_ANN) #Calcular th
 class(projections.ANN.mean.2050.rcp85_CS_bin)
@@ -1588,6 +1610,7 @@ projections.binary.mean_2050.rcp85_CS <- mean(projections.ANN.mean.2050.rcp85_CS
 					projections.SRE.mean.2050.rcp85_CS_bin)
 
 writeRaster(projections.binary.mean_2050.rcp85_CS, filename="Future Climate_binary_2050.rcp85_CS.tif", format="GTiff")
+
 
 ##########################
 projections.CTA.mean.2050.rcp85_FG_bin <- BinaryTransformation(projections.CTA.mean.2050.rcp85_FG, th_CTA) #Calcular th
@@ -1637,6 +1660,7 @@ projections.binary.mean_2050.rcp85_FG <- mean(projections.ANN.mean.2050.rcp85_FG
 
 writeRaster(projections.binary.mean_2050.rcp85_FG, filename="Future Climate_binary_2050.rcp85_FG.tif", format="GTiff")
 
+
 #########################
 projections.CTA.mean.2050.rcp85_GF_bin <- BinaryTransformation(projections.CTA.mean.2050.rcp85_GF, th_CTA) #Calcular th
 class(projections.CTA.mean.2050.rcp85_GF_bin)
@@ -1684,6 +1708,7 @@ projections.binary.mean_2050.rcp85_GF <- mean(projections.ANN.mean.2050.rcp85_GF
 					projections.SRE.mean.2050.rcp85_GF_bin)
 
 writeRaster(projections.binary.mean_2050.rcp85_GF, filename="Future Climate_binary_2050.rcp85_GF.tif", format="GTiff")
+
 
 ##########################
 projections.CTA.mean.2050.rcp85_HG_bin <- BinaryTransformation(projections.CTA.mean.2050.rcp85_HG, th_CTA) #Calcular th
@@ -1733,6 +1758,7 @@ projections.binary.mean_2050.rcp85_HG <- mean(projections.ANN.mean.2050.rcp85_HG
 
 writeRaster(projections.binary.mean_2050.rcp85_HG, filename="Future Climate_binary_2050.rcp85_HG.tif", format="GTiff")
 
+
 #########################
 projections.CTA.mean.2050.rcp85_IP_bin <- BinaryTransformation(projections.CTA.mean.2050.rcp85_IP, th_CTA) #Calcular th
 class(projections.CTA.mean.2050.rcp85_IP_bin)
@@ -1780,6 +1806,7 @@ projections.binary.mean_2050.rcp85_IP <- mean(projections.ANN.mean.2050.rcp85_IP
 					projections.SRE.mean.2050.rcp85_IP_bin)
 
 writeRaster(projections.binary.mean_2050.rcp85_IP, filename="Future Climate_binary_2050.rcp85_IP.tif", format="GTiff")
+
 
 #########################
 projections.CTA.mean.2050.rcp85_MC_bin <- BinaryTransformation(projections.CTA.mean.2050.rcp85_MC, th_CTA) #Calcular th
@@ -1985,7 +2012,7 @@ projections.mean_2050_MAXENT <- mean(projections.MAXENT.mean.2050.rcp85_CC,
 							projections.MAXENT.mean.2050.rcp85_IP,
 							projections.MAXENT.mean.2050.rcp85_MC,
 							projections.MAXENT.mean.2050.rcp85_MR)
-projections.binary.mean_2050_MAXENT <- BinaryTransformation(projections.mean_2050_MAXENT, th_MAXENT)
+projections.binary.mean_2050_MAXENT <- BinaryTransformation(projections.mean_2050_MAXENT, th_MAXENT.Phillips)
 writeRaster(projections.binary.mean_2050_MAXENT, filename="Future Climate_binary_2050.rcp85_MAXENT.tif", format="GTiff")
 
 projections.mean_2050_SRE <- mean(projections.SRE.mean.2050.rcp85_CC,  
@@ -2007,242 +2034,23 @@ projections.binary.mean_2050.rcp85 <-mean(projections.binary.mean_2050.rcp85_CC 
 writeRaster(projections.binary.mean_2050.rcp85, filename="Future Climate_binary_2050.rcp85_consenso.tif", format="GTiff")
 
 
+save.image()
 
+
+
+
+
+#Somente dê os comandos a seguir se você realmente não for precisar mais dos 
+#arquivos temporários!!!
+
+#Remoção de Arquivos Temporários
+## remove the tmp dir
+unlink(raster_tmp_dir, recursive = T, force = T)
+## Remove TempFiles
+showTmpFiles ()##arquivos temp. de no processo
+plot(wrld_simpl, add=T)
 
 
 
 #FIM
 -----------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-### Daqui em diante, não proceder por enquanto.
-
-################################################################################################################################################
-################################################################################################################################################
-################################################################################################################################################
-################################################################################################################################################
-################################################################################################################################################
-
-## ***************************
-
-
-## Calculate area of occupancy from binary unprojected area
-## ********************************************************
-
-area.RF.2050.rcp85 <- area(projections.RF.2050.rcp85.mean.binary)
-class(area.RF.2050.rcp85)
-str(values(area.RF.2050.rcp85))
-summary(values(area.RF.2050.rcp85))
-
-area.total.RF.2050.rcp85 <- data.frame(values(projections.RF.2050.rcp85.mean.binary), values(area.RF.2050.rcp85)) #Combine binary and area info for each cell
-names(area.total.RF.2050.rcp85) <- c("Pres.Abs", "Area")
-head(area.total.RF.2050.rcp85)
-area.2050.rcp85 = tapply(area.total.RF.2050.rcp85$Area, area.total.RF.2050.rcp85$Pres.Abs, sum)
-area.2050.rcp85.presence = area.2050.rcp85[2]
-area.2050.rcp85.presence
-
-
-
-## Calculating the ratio between present and future areas 
-## ******************************************************
-
-predict.area.2050.rcp85.log = log(area.2050.rcp85.presence / area.current.presence)
-predict.area.2050.rcp85.ratio = (area.2050.rcp85.presence / area.current.presence)
-predict.area.2050.rcp85.percent = (area.2050.rcp85.presence / area.current.presence)/100
-
-predict.area.2050.rcp26 # result = -0.01589181(log)
-predict.area.2050.rcp45 # result = -0.1000519(log)
-predict.area.2050.rcp85 # result = -0.3275401(log)
-
-
-
-
-## 2070
-## ****
-## Repeat procedures for 2050
-
-## Calculating the diference between present and future areas 
-## ********************************************************
-
-predict.area.2070.rcp26 # result = -0.05286374
-predict.area.2070.rcp45 # result = -0.3725469
-predict.area.2070.rcp85 # result = -0.5381555
-
-
-
-
-# Convert to binary and calculate area of occupancy
-# *************************************************
-projections.list3 <- list()
-projections.list4 <- list()
-projections.list5 <- list()
-projections.list6 <- list()
-
-for(i in 1:length(projections.list2)){
-  
-  ## Convert to binary
-  projections.binary <- BinaryTransformation(projections.list2[[i]], 0.67)
-  class(projections.binary ) #This is a raster layer!
-  str(values(projections.binary )) #These are only the binary values!
-  summary(values(projections.binary ))
-  
-  
-  ## Calculate area of occupancy from binary unprojected area
-  area <- area(projections.binary)
-  class(area)
-  str(values(area))
-  summary(values(area))
-  
-  area.future <- data.frame(values(projections.binary), values(area)) #Combine binary and area info for each cell
-  names(area.future) <- c("Pres.Abs", "Area")
-  head(area.future)
-  area.future.2 = tapply(area.future$Area, area.future$Pres.Abs, sum) #Area of occupancy = xxx km2 (will vary every time!)
-  area.future.presence = area.future.2[2]
-  area.future.presence
-  
-  projections.list3[[i]] <- assign(paste("area", i, sep = ""), area.future.presence)
-  
-  
-  ## Calculating the difference between present and future areas 
-  predict.area.log = log(area.future.presence/area.current.presence)
-  predict.area.ratio = (area.future.presence/area.current.presence)
-  predict.area.reduction = (1 - predict.area.ratio)
-  
-  projections.list4[[i]] <- assign(paste("projection", i, sep = ""), predict.area.log)
-  projections.list5[[i]] <- assign(paste("projection", i, sep = ""), predict.area.ratio)
-  projections.list6[[i]] <- assign(paste("projection", i, sep = ""), predict.area.reduction)
-}
-
-projections.list3.df <- data.frame(matrix(unlist(projections.list3)))
-names(projections.list3.df) <- "area.adequability"
-
-projections.list4.df <- data.frame(matrix(unlist(projections.list4)))
-names(projections.list4.df) <- "area.reduced.log"
-
-projections.list5.df <- data.frame(matrix(unlist(projections.list5)))
-names(projections.list5.df) <- "area.reduced.ratio"
-
-projections.list6.df <- data.frame(matrix(unlist(projections.list6)))
-names(projections.list6.df) <- "area.reduced.percent"
-
-summary.results <- data.frame(projection.name.list.df, projections.list3.df, projections.list4.df, projections.list5.df, projections.list6.df)
-head(summary.results)
-summary(summary.results)
-
-
-
-
-#################################################################################
-## Calculating the diference between projections presence and deforested areas ##
-#################################################################################
-
-
-#############
-## Present ##
-#############
-
-## Crop projection for Cerrado only
-dis.cerrado <- readOGR("C:/Users/Vitor HGL Cavalcante/Documents/GitHub/Extinction-risk-Micrablepharus-atticolus/Cerrado_shapefiles",
-                       "Cerrado_Eco_merge_Clip")
-plot(dis.cerrado)
-proj.only.cer <- mask(projections.RF.mean.binary, dis.cerrado)
-plot(proj.only.cer)
-
-## Cerrado Remanescent Layer 
-## With remaining "Tatá"
-reman.cer.2010 <- readOGR("C:/Users/Vitor HGL Cavalcante/Documents/GitHub/Extinction-risk-Micrablepharus-atticolus/Remanescentes_biomas/REMANESCENTE_CERRADO_2010",
-                          "Remanescente_Cerrado_2010")
-plot(reman.cer.2010)
-class(reman.cer.2010)
-
-reman.cer.2010r <- rasterize(reman.cer.2010, environment, 1, background = 0, filename = "reman.cer.2010r", overwrite = T)
-plot(reman.cer.2010r)
-writeRaster(reman.cer.2010r, "reman.cer.2010r.tif", format = "GTiff", overwrite = T)
-reman.cer.2010r <- raster("reman.cer.2010r.tif")
-
-## Calculating areas
-area.occurrence.r <- (reman.cer.2010r*proj.only.cer)
-area.occurrence.final.r <- area(area.occurrence.r)
-
-area.total.r <- data.frame(values(area.occurrence.final.r), values(area.occurrence.r))
-names(area.total.r) <- c("Area", "Pres.Abs")
-head(area.total.r)
-area.current.r = tapply(area.total.r$Area, area.total.r$Pres.Abs, sum) #Area of occupancy = 534,124,2 km2
-area.current.presence.r = area.current.r[2]
-area.current.presence.r 
-
-
-
-
-############
-## Future ##
-############
-
-# Convert to binary and calculate area of occupancy to remaining in Cerrado
-# *************************************************************************
-projections.list3.r <- list()
-projections.list4.r <- list()
-projections.list5.r <- list()
-projections.list6.r <- list()
-
-for(i in 1:length(projections.list2)){
-  
-  ## Convert to binary
-  projections.binary <- BinaryTransformation(projections.list2[[i]], 0.67)
-  
-  ## Crop projection for Cerrado only
-  proj.future.only.cer <- mask(projections.binary, dis.cerrado)
-  
-  ## Calculating remaining area
-  area.r <- (reman.cer.2010r*proj.future.only.cer)
-  area.final.r <- area(area.r)
-  
-  area.future.r <- data.frame(values(area.final.r), values(area.r))
-  names(area.future.r) <- c("Area", "Pres.Abs")
-  head(area.future.r)
-  area.future.2.r = tapply(area.future.r$Area, area.future.r$Pres.Abs, sum)
-  area.future.presence.r = area.future.2.r[2]
-  area.future.presence.r
-  
-  projections.list3.r[[i]] <- assign(paste("area", i, sep = ""), area.future.presence.r)
-  
-  
-  ## Calculating the difference between present and future areas 
-  predict.area.log.r = log(area.future.presence.r/area.current.presence) ## Current total or only Cerrado???
-  predict.area.ratio.r = (area.future.presence.r/area.current.presence)
-  predict.area.reduction.r = (1 - predict.area.ratio.r)
-  
-  projections.list4.r[[i]] <- assign(paste("projection", i, sep = ""), predict.area.log.r)
-  projections.list5.r[[i]] <- assign(paste("projection", i, sep = ""), predict.area.ratio.r)
-  projections.list6.r[[i]] <- assign(paste("projection", i, sep = ""), predict.area.reduction.r)
-}
-
-projections.list3.df.r <- data.frame(matrix(unlist(projections.list3.r)))
-names(projections.list3.df.r) <- "area.adequability"
-
-projections.list4.df.r <- data.frame(matrix(unlist(projections.list4.r)))
-names(projections.list4.df.r) <- "area.reduced.log"
-
-projections.list5.df.r <- data.frame(matrix(unlist(projections.list5.r)))
-names(projections.list5.df.r) <- "area.reduced.ratio"
-
-projections.list6.df.r <- data.frame(matrix(unlist(projections.list6.r)))
-names(projections.list6.df.r) <- "area.reduced.percent"
-
-summary.results.r <- data.frame(projection.name.list.df, projections.list3.df.r, projections.list4.df.r, projections.list5.df.r, projections.list6.df.r)
-head(summary.results.r)
-summary(summary.results.r)
-data.frame(summary.results.r)
-write.table(summary.results.r, "summary.results.r.txt", row.names=T, col.names=T)
-
-
-
-## End
-## ***
