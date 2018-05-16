@@ -1,35 +1,29 @@
 # Dear Researcher,
-# I am translating the comments of this code to English.
+# I will translate the comments of this code to English as soon as possible.
 # If you have any suggestion, please contact me: pedro.eisenlohr@unemat.br
 # Enjoy it!
 # Pedro V. Eisenlohr - UNEMAT, Alta Floresta/MT
 
 
 #######################################
-## DEFINING THE WORK DIRECTORY ##
+## DEFININDO O DIRETÓRIO DE TRABALHO ##
 #######################################
 
-#In order to follow this routine, you should:
-#1) Assign a folder named "Habitat Suitability Models" as your work directory.
-#2) Inside "Habitat Suitability Models", please include the following sub-folders:
+#Para seguir essa rotina, é necessário que:
+#1) Defina-se uma pasta denominada "Habitat Suitability Models" como diretório.
+#2) Dentro de Habitat Suitability Models", inclua as seguintes pastas e subpastas:
 #2.1) Environmental Layers
 #2.1.1) CHELSA.
 #2.1.2) CHELSA_Future.
 #2.2) Shapefiles.
-#If you wish the full files of the abovementioned folders, please contact me (pedro.eisenlohr@unemat.br).
+#Caso você queira o conteúdo completo dessas pastas, favor entrar em contato comigo (pedro.eisenlohr@unemat.br).
+
 
 setwd(choose.dir()) #Defina a pasta Habitat Suitability Models
 getwd()
 dir() #Dentre as pastas, DEVE haver "Environmental Layers" e "Shapefiles"
 
-### Sempre que necessário:
-# Processamento paralelo
-#cl <- makeCluster(detectCores()) # number of cores in computer
-#registerDoParallel(cl)
-#getDoParWorkers()
 
-# Aumento da alocação de memória
-memory.limit(10000000000) # ou algum outro valor de memória (em kB)
 
 
 ########################################
@@ -72,12 +66,22 @@ library(raster)
 library(sdmvspecies)
 
 
+### Sempre que necessário:
+# Processamento paralelo
+#cl <- makeCluster(detectCores()) # number of cores in computer
+#registerDoParallel(cl)
+#getDoParWorkers()
+
+# Aumento da alocação de memória
+memory.limit(10000000) # ou algum outro valor de memória (em kB)
+
+
+## create the directory (somente ao iniciar a modelagem):
+dir.create(raster_tmp_dir, showWarnings = F, recursive = T)
+
 ##MUDAR DIRETÓRIO DE ARQUIVOS TEMPORÁRIOS DO raster
 ## define the name of a temp directory where raster tmp files will be stored
 raster_tmp_dir <- "raster_tmp"
-## create the directory
-dir.create(raster_tmp_dir, showWarnings = F, recursive = T)
-
 ## set raster options
 rasterOptions(tmpdir = raster_tmp_dir)
 #Caso o PC desligue sem que você tenha concluído a modelagem,
@@ -105,7 +109,8 @@ domains <- readOGR("./Shapefiles/Shape_Dominios/Dominio_AbSaber.shp")
 bio.crop <- rescale(bio.crop)
 
 # Checando bio.crop
-bio.crop #Observe atentamente esta sequência!
+bio.crop 
+names(bio.crop)#Observe atentamente esta sequência!
 names(bio.crop)=c("bio01","bio02","bio03","bio04","bio05","bio06","bio07",
 			"bio08","bio09","bio10","bio11","bio12","bio13","bio14",
 			"bio15","bio16","bio17","bio18","bio19")
@@ -174,7 +179,7 @@ rnd.points <- randomPoints(mask, 10000)
 
 # Principal Components Analysis (PCA) 
 env.data <- extract(bio.crop2, rnd.points)
-pca.env.data <- princomp(env.data, cor = T)
+#pca.env.data <- princomp(env.data, cor = T)
 #biplot(pca.env.data, pc.biplot = T)
 
 # Detectando e removendo colinearidades
@@ -204,9 +209,9 @@ occurrence.resp <-  rep(1, length(myRespXY$long))
 
 dim(spp)
 PA.number <- length(spp[,1])
-PA.number
+PA.number #número de pontos de ocorrência espacialmente únicos
 
-### Ajuste abaixo apenas o PA.nb.absences
+#Preparando para CTA, GBM e RF:
 sppBiomodData.PA.equal <- BIOMOD_FormatingData(
 	resp.var = occurrence.resp,
 	expl.var = env.selected,
@@ -218,7 +223,7 @@ sppBiomodData.PA.equal <- BIOMOD_FormatingData(
 sppBiomodData.PA.equal
 
 
-#Não fazer ajustes abaixo:
+#Preparando para os demais algoritmos:
 sppBiomodData.PA.10000 <- BIOMOD_FormatingData(
 	resp.var = occurrence.resp,
 	expl.var = env.selected,
@@ -266,22 +271,7 @@ sppModelOut.PA.equal <- BIOMOD_Modeling(sppBiomodData.PA.equal,
 	modeling.id = "spp_presente")
 sppModelOut.PA.equal
 
-
-#################### ATENÇÃO!!! ########################
-### Somente siga após concluir o passo anterior ########
-## A modelagem a seguir é bastante exigente para o PC ##
-########################################################
-
-# Processamento paralelo
-cl <- makeCluster(detectCores()) # number of cores in computer
-registerDoParallel(cl)
-getDoParWorkers() 
-
-# Alocação de memória especial
-memory.limit(10000000)                     
-
-
-
+             
 sppModelOut.PA.10000 <- BIOMOD_Modeling( 
 	sppBiomodData.PA.10000, 
 	models = c("GLM","GAM","ANN","SRE","FDA","MARS","MAXENT.Phillips"), 
@@ -400,8 +390,6 @@ write.table(summary.eval.10000,"Models2_Evaluation_SD.csv")
 ## PRODUZINDO AS PROJEÇÕES ##
 ###############################
 
-memory.limit(1000000)
-
 spp.projections_1 <- BIOMOD_Projection(
 	modeling.output = sppModelOut.PA.equal,
 	new.env = env.selected,
@@ -419,6 +407,7 @@ spp.projections_2 <- BIOMOD_Projection(
 
 save.image()
 
+
 ### Definir diretório onde está o arquivo proj_Cur1_presente_Occurrence.grd
 projections_1 <-stack("./Occurrence/proj_Cur1_presente/proj_Cur1_presente_Occurrence.grd")
 names(projections_1)
@@ -432,52 +421,52 @@ names(projections_2)
 projections.RF.all <- subset(projections_1, grep("RF", names(projections_1)))
 projections.RF.mean <- mean(projections.RF.all)/10
 #plot(projections.RF.mean, col = matlab.like(100), main = "RF - Current Climate", las = 1)
-writeRaster(projections.RF.mean, filename="Ensemble - Current Climate_RF.asc", formato="ascii")
+writeRaster(projections.RF.mean, filename="Current Climate_RF.asc", formato="ascii")
 
 projections.GBM.all <-subset(projections_1, grep("GBM", names(projections_1)))
 projections.GBM.mean <- mean(projections.GBM.all)/10
 #plot(projections.GBM.mean, col = matlab.like(100), main = "GBM - Current Climate", las = 1)
-writeRaster(projections.GBM.mean, filename="Ensemble - Current Climate_GBM.asc", formato="ascii")
+writeRaster(projections.GBM.mean, filename="Current Climate_GBM.asc", formato="ascii")
 
 projections.CTA.all <-subset(projections_1,grep("CTA", names(projections_1)))
 projections.CTA.mean <- mean(projections.CTA.all)/10
 #plot(projections.CTA.mean, col = matlab.like(100), main = "CTA - Current Climate", las = 1)
-writeRaster(projections.CTA.mean, filename="Ensemble - Current Climate_CTA.asc", formato="ascii")
+writeRaster(projections.CTA.mean, filename="Current Climate_CTA.asc", formato="ascii")
 
 projections.GLM.all <-subset(projections_2,grep("GLM", names(projections_2)))
 projections.GLM.mean <- mean(projections.GLM.all)/10
 #plot(projections.GLM.mean, col = matlab.like(100), main = "GLM - Current Climate", las = 1)
-writeRaster(projections.GLM.mean, filename="Ensemble - Current Climate_GLM.asc", formato="ascii")
+writeRaster(projections.GLM.mean, filename="Current Climate_GLM.asc", formato="ascii")
 
 projections.GAM.all <-subset(projections_2,grep("GAM", names(projections_2)))
 projections.GAM.mean <- mean(projections.GAM.all)/10
 #plot(projections.GAM.mean, col = matlab.like(100), main = "GAM - Current Climate", las = 1)
-writeRaster(projections.GAM.mean, filename="Ensemble - Current Climate_GAM.asc", formato="ascii")
+writeRaster(projections.GAM.mean, filename="Current Climate_GAM.asc", formato="ascii")
 
 projections.ANN.all <- subset(projections_2,grep("ANN", names(projections_2)))
 projections.ANN.mean <- mean(projections.ANN.all)/10
 #plot(projections.ANN.mean, col = matlab.like(100), main = "ANN - Current Climate", las = 1)
-writeRaster(projections.ANN.mean, filename="Ensemble - Current Climate_ANN.asc", formato="ascii")
+writeRaster(projections.ANN.mean, filename="Current Climate_ANN.asc", formato="ascii")
 
 projections.SRE.all <- subset(projections_2,grep("SRE", names(projections_2)))
 projections.SRE.mean <- mean(projections.SRE.all)/10
 #plot(projections.SRE.mean, col = matlab.like(100), main = "SRE - Current Climate", las = 1)
-writeRaster(projections.SRE.mean, filename="Ensemble - Current Climate_SRE.asc", formato="ascii")
+writeRaster(projections.SRE.mean, filename="Current Climate_SRE.asc", formato="ascii")
 
 projections.MARS.all <- subset(projections_2,grep("MARS", names(projections_2)))
 projections.MARS.mean <- mean(projections.MARS.all)/10
 #plot(projections.MARS.mean, col = matlab.like(100), main = "MARS - Current Climate", las = 1)
-writeRaster(projections.MARS.mean, filename="Ensemble - Current Climate_MARS.asc", formato="ascii")
+writeRaster(projections.MARS.mean, filename="Current Climate_MARS.asc", formato="ascii")
 
 projections.FDA.all <- subset(projections_2,grep("FDA", names(projections_2)))
 projections.FDA.mean <- mean(projections.FDA.all)/10
 #plot(projections.FDA.mean, col = matlab.like(100), main = "FDA - Current Climate", las = 1)
-writeRaster(projections.FDA.mean, filename="Ensemble - Current Climate_FDA.asc", formato="ascii")
+writeRaster(projections.FDA.mean, filename="Current Climate_FDA.asc", formato="ascii")
 
 projections.MAXENT.all <- subset(projections_2,grep("MAXENT.Phillips", names(projections_2)))
 projections.MAXENT.mean <- mean(projections.MAXENT.all)/10
 #plot(projections.MAXENT.mean, col = matlab.like(100), main = "MAXENT - Current Climate", las = 1)
-writeRaster(projections.MAXENT.mean, filename="Ensemble - Current Climate_MAXENT.asc", formato="ascii")
+writeRaster(projections.MAXENT.mean, filename="Current Climate_MAXENT.asc", formato="ascii")
 
 
 #########################################
@@ -494,8 +483,10 @@ projections.all.mean <- mean(projections.RF.mean + projections.GBM.mean + projec
 #plot(projections.all.mean, col = matlab.like(100), main = "Ensemble - Current Climate", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
 
-#writeRaster(projections.all.mean, filename="Ensemble - Current Climate.tif", format="GTiff")
-writeRaster(projections.all.mean, filename="Ensemble - Current Climate.asc", format="ascii")
+writeRaster(projections.all.mean, filename="Ensemble - Current Climate.asc", format="ascii", overwrite=TRUE)
+
+
+save.image()
 
 
 ###############################################################
@@ -579,6 +570,10 @@ th_MAXENT.Phillips <- mean(scores_ROC_MAXENT.Phillips)/10
 th_MAXENT.Phillips
 write.table(th_MAXENT.Phillips, "scores_ROC_MAXENT.Phillips_.csv")
 
+#Scores mean
+th_mean<- mean(th_CTA + th_GBM + th_RF + th_GLM + th_GAM + th_ANN + th_SRE + th_FDA + th_MARS + th_MAXENT.Phillips)#Somente os algoritmos selecionados
+write.table(th_mean, "scores_ROC_mean.csv")
+
 
 ###############################
 # Converter em mapas binários #
@@ -586,82 +581,72 @@ write.table(th_MAXENT.Phillips, "scores_ROC_MAXENT.Phillips_.csv")
 projections.binary.CTA.mean <- BinaryTransformation(projections.CTA.mean, th_CTA) #Calcular th
 class(projections.binary.CTA.mean)
 summary(values(projections.binary.CTA.mean))
-#plot(projections.binary.CTA.mean, col = matlab.like(100), main = "Ensemble - Current Climate_CTA", las = 1)
+#plot(projections.binary.CTA.mean, col = matlab.like(100), main = "Current Climate_CTA", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.CTA.mean, filename="Ensemble - Current Climate_CTA - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.CTA.mean, filename="Ensemble - Current Climate_CTA - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.CTA.mean, filename="Current Climate_CTA - BINARY.asc", formato="ascii")
 
 projections.binary.GBM.mean <- BinaryTransformation(projections.GBM.mean, th_GBM) #Calcular th
 class(projections.binary.GBM.mean)
 summary(values(projections.binary.GBM.mean))
-#plot(projections.binary.GBM.mean, col = matlab.like(100), main = "Ensemble - Current Climate_GBM", las = 1)
+#plot(projections.binary.GBM.mean, col = matlab.like(100), main = "Current Climate_GBM", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.GBM.mean, filename="Ensemble - Current Climate_GBM - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.GBM.mean, filename="Ensemble - Current Climate_GBM - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.GBM.mean, filename="Current Climate_GBM - BINARY.asc", formato="ascii")
 
 projections.binary.RF.mean <- BinaryTransformation(projections.RF.mean, th_RF) #Calcular th
 class(projections.binary.RF.mean)
 summary(values(projections.binary.RF.mean))
-#plot(projections.binary.RF.mean, col = matlab.like(100), main = "Ensemble - Current Climate_RF", las = 1)
+#plot(projections.binary.RF.mean, col = matlab.like(100), main = "Current Climate_RF", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.RF.mean, filename="Ensemble - Current Climate_RF - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.RF.mean, filename="Ensemble - Current Climate_RF - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.RF.mean, filename="Current Climate_RF - BINARY.asc", formato="ascii")
 
 projections.binary.ANN.mean <- BinaryTransformation(projections.ANN.mean, th_ANN) #Calcular th
 class(projections.binary.ANN.mean)
 summary(values(projections.binary.ANN.mean))
-#plot(projections.binary.ANN.mean, col = matlab.like(100), main = "Ensemble - Current Climate_ANN", las = 1)
+#plot(projections.binary.ANN.mean, col = matlab.like(100), main = "Current Climate_ANN", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.ANN.mean, filename="Ensemble - Current Climate_ANN - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.ANN.mean, filename="Ensemble - Current Climate_ANN - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.ANN.mean, filename="Current Climate_ANN - BINARY.asc", formato="ascii")
 
 projections.binary.FDA.mean <- BinaryTransformation(projections.FDA.mean, th_FDA) #Calcular th
 class(projections.binary.FDA.mean)
 summary(values(projections.binary.FDA.mean))
-#plot(projections.binary.FDA.mean, col = matlab.like(100), main = "Ensemble - Current Climate_FDA", las = 1)
+#plot(projections.binary.FDA.mean, col = matlab.like(100), main = "Current Climate_FDA", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.FDA.mean, filename="Ensemble - Current Climate_FDA - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.FDA.mean, filename="Ensemble - Current Climate_FDA - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.FDA.mean, filename="Current Climate_FDA - BINARY.asc", formato="ascii")
 
 projections.binary.GAM.mean <- BinaryTransformation(projections.GAM.mean, th_GAM) #Calcular th
 class(projections.binary.GAM.mean)
 summary(values(projections.binary.GAM.mean))
-#plot(projections.binary.GAM.mean, col = matlab.like(100), main = "Ensemble - Current Climate_GAM", las = 1)
+#plot(projections.binary.GAM.mean, col = matlab.like(100), main = "Current Climate_GAM", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.GAM.mean, filename="Ensemble - Current Climate_GAM - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.GAM.mean, filename="Ensemble - Current Climate_GAM - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.GAM.mean, filename="Current Climate_GAM - BINARY.asc", formato="ascii")
 
 projections.binary.GLM.mean <- BinaryTransformation(projections.GLM.mean, th_GLM) #Calcular th
 class(projections.binary.GLM.mean)
 summary(values(projections.binary.GLM.mean))
-#plot(projections.binary.GAM.mean, col = matlab.like(100), main = "Ensemble - Current Climate_GLM", las = 1)
+#plot(projections.binary.GAM.mean, col = matlab.like(100), main = "Current Climate_GLM", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.GLM.mean, filename="Ensemble - Current Climate_GLM - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.GLM.mean, filename="Ensemble - Current Climate_GLM - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.GLM.mean, filename="Current Climate_GLM - BINARY.asc", formato="ascii")
 
 projections.binary.MARS.mean <- BinaryTransformation(projections.MARS.mean, th_MARS) #Calcular th
 class(projections.binary.MARS.mean)
 summary(values(projections.binary.MARS.mean))
-#plot(projections.binary.MARS.mean, col = matlab.like(100), main = "Ensemble - Current Climate_MARS", las = 1)
+#plot(projections.binary.MARS.mean, col = matlab.like(100), main = "Current Climate_MARS", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.MARS.mean, filename="Ensemble - Current Climate_MARS - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.MARS.mean, filename="Ensemble - Current Climate_MARS - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.MARS.mean, filename="Current Climate_MARS - BINARY.asc", formato="ascii")
 
 projections.binary.MAXENT.mean <- BinaryTransformation(projections.MAXENT.mean, th_MAXENT.Phillips) #Calcular th
 class(projections.binary.MAXENT.mean)
 summary(values(projections.binary.MAXENT.mean))
-#plot(projections.binary.MAXENT.mean, col = matlab.like(100), main = "Ensemble - Current Climate_MAXENT.Phillips", las = 1)
+#plot(projections.binary.MAXENT.mean, col = matlab.like(100), main = "Current Climate_MAXENT.Phillips", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.MAXENT.mean, filename="Ensemble - Current Climate_MAXENT.Phillips - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.MAXENT.mean, filename="Ensemble - Current Climate_MAXENT.Phillips - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.MAXENT.mean, filename="Current Climate_MAXENT.Phillips - BINARY.asc", formato="ascii")
 
 projections.binary.SRE.mean <- BinaryTransformation(projections.SRE.mean, th_SRE) #Calcular th
 class(projections.binary.SRE.mean)
 summary(values(projections.binary.SRE.mean))
-#plot(projections.binary.SRE.mean, col = matlab.like(100), main = "Ensemble - Current Climate_SRE", las = 1)
+#plot(projections.binary.SRE.mean, col = matlab.like(100), main = "Current Climate_SRE", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-writeRaster(projections.binary.SRE.mean, filename="Ensemble - Current Climate_SRE - BINARY.tif", format="GTiff")
-writeRaster(projections.binary.SRE.mean, filename="Ensemble - Current Climate_SRE - BINARY.asc", formato="ascii")
+writeRaster(projections.binary.SRE.mean, filename="Current Climate_SRE - BINARY.asc", formato="ascii")
 
 
 
@@ -669,16 +654,25 @@ writeRaster(projections.binary.SRE.mean, filename="Ensemble - Current Climate_SR
 # Consenso entre as Projeções Binárias #
 ########################################
 
-# Mantenha somente os algoritmos selecionados
-#projections.all.mean_bin <- mean(projections.binary.RF.mean + projections.binary.GBM.mean + projections.binary.CTA.mean +
-#	projections.binary.GLM.mean + projections.binary.GAM.mean + projections.binary.ANN.mean + 
-#	projections.binary.SRE.mean + projections.binary.MARS.mean + projections.binary.FDA.mean + projections.binary.MAXENT.mean)
+# Mapa de consenso: binário médio
+projections.all.mean_bin1 <- mean(projections.binary.RF.mean + projections.binary.GBM.mean + projections.binary.CTA.mean +
+	projections.binary.GLM.mean + projections.binary.GAM.mean + projections.binary.ANN.mean + 
+	projections.binary.SRE.mean + projections.binary.MARS.mean + projections.binary.FDA.mean + projections.binary.MAXENT.mean)
 #windows(w=6, h=6)
 #plot(projections.all.mean_bin, col = matlab.like(100), main = "Binary Ensemble - Current Climate", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
-#writeRaster(projections.all.mean_bin, filename="Ensemble - Current Climate - BINARY.tif", format="GTiff")
-#writeRaster(projections.all.mean_bin, filename="Ensemble - Current Climate - BINARY.asc", format="ascii")
+writeRaster(projections.all.mean_bin, filename="Ensemble - Current Climate - mean binary.asc", format="ascii", overwrite=TRUE)
 
+# Mapa de consenso: binário final
+projections.all.mean_bin2 <- BinaryTransformation(projections.all.mean, th_mean) #Calcular th
+#windows(w=6, h=6)
+#plot(projections.all.mean_bin, col = matlab.like(100), main = "Binary Ensemble - Current Climate", las = 1)
+#plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
+writeRaster(projections.all.mean_bin, filename="Ensemble - Current Climate - final binary.asc", format="ascii", overwrite=TRUE)
+
+
+
+save.image()
 
 
 
@@ -1074,7 +1068,7 @@ names(projections.2050.rcp85_1_MR)
 projections.2050.rcp85_2_MR <- stack("./Occurrence/proj_2050.rcp85_2_MR/proj_2050.rcp85_2_MR_Occurrence.grd")
 names(projections.2050.rcp85_2_MR)
 
-
+save.image()
 
 ### Modelos médios para cada algoritmo:
 #CC
@@ -1204,6 +1198,7 @@ projections.FDA.mean.2050.rcp85_FG <- mean(projections.FDA.all.2050.rcp85_FG)/10
 projections.MAXENT.all.2050.rcp85_FG <- subset(projections.2050.rcp85_2_FG,grep("MAXENT.Phillips", names(projections.2050.rcp85_2_FG)))
 projections.MAXENT.mean.2050.rcp85_FG <- mean(projections.MAXENT.all.2050.rcp85_FG)/10
 
+save.image()
 
 #GF
 projections.RF.all.2050.rcp85_GF <- subset(projections.2050.rcp85_1_GF, grep("RF", names(projections.2050.rcp85_1_GF)))
@@ -1379,8 +1374,7 @@ save.image()
 #CC
 projections.all.mean.2050.rcp85_CC <- mean(projections.RF.mean.2050.rcp85_CC + projections.GBM.mean.2050.rcp85_CC +
 	projections.CTA.mean.2050.rcp85_CC + projections.GLM.mean.2050.rcp85_CC + projections.GAM.mean.2050.rcp85_CC +
-	projections.ANN.mean.2050.rcp85_CC + projections.MARS.mean.2050.rcp85_CC + projections.FDA.mean.2050.rcp85_CC + projections.MAXENT.mean.2050.rcp85_CC)
-writeRaster(projections.all.mean.2050.rcp85_CC, filename="Future Climate - 2050_rcp8.5_CC.tif", format="GTiff")
+	projections.ANN.mean.2050.rcp85_CC + projections.SRE.mean.2050.rcp85_CC + projections.MARS.mean.2050.rcp85_CC + projections.FDA.mean.2050.rcp85_CC + projections.MAXENT.mean.2050.rcp85_CC)
 writeRaster(projections.all.mean.2050.rcp85_CC, filename="Future Climate - 2050_rcp8.5_CC.asc", format="ascii")
 
 #CM
@@ -1388,7 +1382,6 @@ projections.all.mean.2050.rcp85_CM <- mean(projections.RF.mean.2050.rcp85_CM + p
 	projections.CTA.mean.2050.rcp85_CM + projections.GLM.mean.2050.rcp85_CM + projections.GAM.mean.2050.rcp85_CM +
 	projections.ANN.mean.2050.rcp85_CM + projections.SRE.mean.2050.rcp85_CM +
 	projections.MARS.mean.2050.rcp85_CM + projections.FDA.mean.2050.rcp85_CM + projections.MAXENT.mean.2050.rcp85_CM)
-writeRaster(projections.all.mean.2050.rcp85_CM, filename="Future Climate - 2050_rcp8.5_CM.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_CM, filename="Future Climate - 2050_rcp8.5_CM.asc", format="ascii")
 
 #CS
@@ -1396,7 +1389,6 @@ projections.all.mean.2050.rcp85_CS <- mean(projections.RF.mean.2050.rcp85_CS + p
 	projections.CTA.mean.2050.rcp85_CS + projections.GLM.mean.2050.rcp85_CS + projections.GAM.mean.2050.rcp85_CS +
 	projections.ANN.mean.2050.rcp85_CS + projections.SRE.mean.2050.rcp85_CS +
 	projections.MARS.mean.2050.rcp85_CS + projections.FDA.mean.2050.rcp85_CS + projections.MAXENT.mean.2050.rcp85_CS)
-writeRaster(projections.all.mean.2050.rcp85_CS, filename="Future Climate - 2050_rcp8.5_CS.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_CS, filename="Future Climate - 2050_rcp8.5_CS.asc", format="ascii")
 
 #FG
@@ -1404,7 +1396,6 @@ projections.all.mean.2050.rcp85_FG <- mean(projections.RF.mean.2050.rcp85_FG + p
 	projections.CTA.mean.2050.rcp85_FG + projections.GLM.mean.2050.rcp85_FG + projections.GAM.mean.2050.rcp85_FG +
 	projections.ANN.mean.2050.rcp85_FG + projections.SRE.mean.2050.rcp85_FG +
 	projections.MARS.mean.2050.rcp85_FG + projections.FDA.mean.2050.rcp85_FG + projections.MAXENT.mean.2050.rcp85_FG)
-writeRaster(projections.all.mean.2050.rcp85_FG, filename="Future Climate - 2050_rcp8.5_FG.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_FG, filename="Future Climate - 2050_rcp8.5_FG.asc", format="ascii")
 
 #GF
@@ -1412,7 +1403,6 @@ projections.all.mean.2050.rcp85_GF <- mean(projections.RF.mean.2050.rcp85_GF + p
 	projections.CTA.mean.2050.rcp85_GF + projections.GLM.mean.2050.rcp85_GF + projections.GAM.mean.2050.rcp85_GF +
 	projections.ANN.mean.2050.rcp85_GF + projections.SRE.mean.2050.rcp85_GF +
 	projections.MARS.mean.2050.rcp85_GF + projections.FDA.mean.2050.rcp85_GF + projections.MAXENT.mean.2050.rcp85_GF)
-writeRaster(projections.all.mean.2050.rcp85_GF, filename="Future Climate - 2050_rcp8.5_GF.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_GF, filename="Future Climate - 2050_rcp8.5_GF.asc", format="ascii")
 
 #HG
@@ -1420,7 +1410,6 @@ projections.all.mean.2050.rcp85_HG <- mean(projections.RF.mean.2050.rcp85_HG + p
 	projections.CTA.mean.2050.rcp85_HG + projections.GLM.mean.2050.rcp85_HG + projections.GAM.mean.2050.rcp85_HG +
 	projections.ANN.mean.2050.rcp85_HG + projections.SRE.mean.2050.rcp85_HG +
 	projections.MARS.mean.2050.rcp85_HG + projections.FDA.mean.2050.rcp85_HG + projections.MAXENT.mean.2050.rcp85_HG)
-writeRaster(projections.all.mean.2050.rcp85_HG, filename="Future Climate - 2050_rcp8.5_HG.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_HG, filename="Future Climate - 2050_rcp8.5_HG.asc", format="ascii")
 
 #IP
@@ -1428,7 +1417,6 @@ projections.all.mean.2050.rcp85_IP <- mean(projections.RF.mean.2050.rcp85_IP + p
 	projections.CTA.mean.2050.rcp85_IP + projections.GLM.mean.2050.rcp85_IP + projections.GAM.mean.2050.rcp85_IP +
 	projections.ANN.mean.2050.rcp85_IP + projections.SRE.mean.2050.rcp85_IP +
 	projections.MARS.mean.2050.rcp85_IP + projections.FDA.mean.2050.rcp85_IP + projections.MAXENT.mean.2050.rcp85_IP)
-writeRaster(projections.all.mean.2050.rcp85_IP, filename="Future Climate - 2050_rcp8.5_IP.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_IP, filename="Future Climate - 2050_rcp8.5_IP.asc", format="ascii")
 
 #MC
@@ -1436,7 +1424,6 @@ projections.all.mean.2050.rcp85_MC <- mean(projections.RF.mean.2050.rcp85_MC + p
 	projections.CTA.mean.2050.rcp85_MC + projections.GLM.mean.2050.rcp85_MC + projections.GAM.mean.2050.rcp85_MC +
 	projections.ANN.mean.2050.rcp85_MC + projections.SRE.mean.2050.rcp85_MC +
 	projections.MARS.mean.2050.rcp85_MC + projections.FDA.mean.2050.rcp85_MC + projections.MAXENT.mean.2050.rcp85_MC)
-writeRaster(projections.all.mean.2050.rcp85_MC, filename="Future Climate - 2050_rcp8.5_MC.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_MC, filename="Future Climate - 2050_rcp8.5_MC.asc", format="ascii")
 
 #MR
@@ -1444,22 +1431,21 @@ projections.all.mean.2050.rcp85_MR <- mean(projections.RF.mean.2050.rcp85_MR + p
 	projections.CTA.mean.2050.rcp85_MR + projections.GLM.mean.2050.rcp85_MR + projections.GAM.mean.2050.rcp85_MR +
 	projections.ANN.mean.2050.rcp85_MR + projections.SRE.mean.2050.rcp85_MR +
 	projections.MARS.mean.2050.rcp85_MR + projections.FDA.mean.2050.rcp85_MR + projections.MAXENT.mean.2050.rcp85_MR)
-writeRaster(projections.all.mean.2050.rcp85_MR, filename="Future Climate - 2050_rcp8.5_MR.tif", format="GTiff")
 writeRaster(projections.all.mean.2050.rcp85_MR, filename="Future Climate - 2050_rcp8.5_MR.asc", format="ascii")
 
 
 #Ensemble 2050 - rcp8.5
 ensemble2050rcp8.5 <- mean(projections.all.mean.2050.rcp85_CC, projections.all.mean.2050.rcp85_CM,
 					projections.all.mean.2050.rcp85_CS, projections.all.mean.2050.rcp85_FG,
-					projections.all.mean.2050.rcp85_GF, projections.all.mean.2050.rcp85_HG,
+					projections.all.mean.2050.rcp85_GF,
 					projections.all.mean.2050.rcp85_HG, projections.all.mean.2050.rcp85_IP,
 					projections.all.mean.2050.rcp85_MC, projections.all.mean.2050.rcp85_MR)/10
-writeRaster(ensemble2050rcp8.5, filename="Ensemble - Future Climate - 2050_rcp8.5.tif", format="GTiff")
 writeRaster(ensemble2050rcp8.5, filename="Ensemble - Future Climate - 2050_rcp8.5.asc", format="ascii")
-#windows(w=6, h=6)
-#plot(ensemble2050rcp8.5, col = matlab.like(100), main = "Ensemble - 2050 - rcp8.5", las = 1)
-#plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
+windows(w=6, h=6)
+plot(ensemble2050rcp8.5, col = matlab.like(100), main = "Ensemble - 2050 - rcp8.5", las = 1)
+plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
 
+save.image()
 
 
 ###############################
@@ -1512,7 +1498,7 @@ projections.binary.mean_2050.rcp85_CC <- mean(projections.ANN.mean.2050.rcp85_CC
 					projections.MARS.mean.2050.rcp85_CC_bin + projections.MAXENT.mean.2050.rcp85_CC_bin + projections.RF.mean.2050.rcp85_CC_bin +
 					projections.SRE.mean.2050.rcp85_CC_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_CC, filename="Future Climate_binary_2050.rcp85_CC.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_CC, filename="Future Climate_binary_2050.rcp85_CC.asc", format="ascii")
 
 
 ##########################
@@ -1560,7 +1546,7 @@ projections.binary.mean_2050.rcp85_CM <- mean(projections.ANN.mean.2050.rcp85_CM
 					projections.GAM.mean.2050.rcp85_CM_bin + projections.GBM.mean.2050.rcp85_CM_bin + projections.GLM.mean.2050.rcp85_CM_bin +
 					projections.MARS.mean.2050.rcp85_CM_bin + projections.MAXENT.mean.2050.rcp85_CM_bin + projections.RF.mean.2050.rcp85_CM_bin +
 					projections.SRE.mean.2050.rcp85_CM_bin)
-writeRaster(projections.binary.mean_2050.rcp85_CM, filename="Future Climate_binary_2050.rcp85_CM.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_CM, filename="Future Climate_binary_2050.rcp85_CM.asc", format="ascii")
 
 
 ########################
@@ -1609,7 +1595,7 @@ projections.binary.mean_2050.rcp85_CS <- mean(projections.ANN.mean.2050.rcp85_CS
 					projections.MARS.mean.2050.rcp85_CS_bin + projections.MAXENT.mean.2050.rcp85_CS_bin + projections.RF.mean.2050.rcp85_CS_bin +
 					projections.SRE.mean.2050.rcp85_CS_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_CS, filename="Future Climate_binary_2050.rcp85_CS.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_CS, filename="Future Climate_binary_2050.rcp85_CS.asc", format="ascii")
 
 
 ##########################
@@ -1658,7 +1644,7 @@ projections.binary.mean_2050.rcp85_FG <- mean(projections.ANN.mean.2050.rcp85_FG
 					projections.MARS.mean.2050.rcp85_FG_bin + projections.MAXENT.mean.2050.rcp85_FG_bin + projections.RF.mean.2050.rcp85_FG_bin +
 					projections.SRE.mean.2050.rcp85_FG_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_FG, filename="Future Climate_binary_2050.rcp85_FG.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_FG, filename="Future Climate_binary_2050.rcp85_FG.asc", format="ascii")
 
 
 #########################
@@ -1707,7 +1693,7 @@ projections.binary.mean_2050.rcp85_GF <- mean(projections.ANN.mean.2050.rcp85_GF
 					projections.MARS.mean.2050.rcp85_GF_bin + projections.MAXENT.mean.2050.rcp85_GF_bin + projections.RF.mean.2050.rcp85_GF_bin +
 					projections.SRE.mean.2050.rcp85_GF_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_GF, filename="Future Climate_binary_2050.rcp85_GF.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_GF, filename="Future Climate_binary_2050.rcp85_GF.asc", format="ascii")
 
 
 ##########################
@@ -1756,7 +1742,7 @@ projections.binary.mean_2050.rcp85_HG <- mean(projections.ANN.mean.2050.rcp85_HG
 					projections.MARS.mean.2050.rcp85_HG_bin + projections.MAXENT.mean.2050.rcp85_HG_bin + projections.RF.mean.2050.rcp85_HG_bin +
 					projections.SRE.mean.2050.rcp85_HG_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_HG, filename="Future Climate_binary_2050.rcp85_HG.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_HG, filename="Future Climate_binary_2050.rcp85_HG.asc", format="ascii")
 
 
 #########################
@@ -1805,7 +1791,7 @@ projections.binary.mean_2050.rcp85_IP <- mean(projections.ANN.mean.2050.rcp85_IP
 					projections.MARS.mean.2050.rcp85_IP_bin + projections.MAXENT.mean.2050.rcp85_IP_bin + projections.RF.mean.2050.rcp85_IP_bin +
 					projections.SRE.mean.2050.rcp85_IP_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_IP, filename="Future Climate_binary_2050.rcp85_IP.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_IP, filename="Future Climate_binary_2050.rcp85_IP.asc", format="ascii")
 
 
 #########################
@@ -1854,7 +1840,7 @@ projections.binary.mean_2050.rcp85_MC <- mean(projections.ANN.mean.2050.rcp85_MC
 					projections.MARS.mean.2050.rcp85_MC_bin + projections.MAXENT.mean.2050.rcp85_MC_bin + projections.RF.mean.2050.rcp85_MC_bin +
 					projections.SRE.mean.2050.rcp85_MC_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_MC, filename="Future Climate_binary_2050.rcp85_MC.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_MC, filename="Future Climate_binary_2050.rcp85_MC.asc", format="ascii")
 
 
 ##########################
@@ -1903,10 +1889,10 @@ projections.binary.mean_2050.rcp85_MR <- mean(projections.ANN.mean.2050.rcp85_MR
 					projections.MARS.mean.2050.rcp85_MR_bin + projections.MAXENT.mean.2050.rcp85_MR_bin + projections.RF.mean.2050.rcp85_MR_bin +
 					projections.SRE.mean.2050.rcp85_MR_bin)
 
-writeRaster(projections.binary.mean_2050.rcp85_MR, filename="Future Climate_binary_2050.rcp85_MR.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85_MR, filename="Future Climate_binary_2050.rcp85_MR.asc", format="ascii")
 
 
-######Binario 2050.rcp85#######
+######Consensos contínuos e binarios - 2050.rcp85#######
 projections.mean_2050_RF <- mean(projections.RF.mean.2050.rcp85_CC,  
 							projections.RF.mean.2050.rcp85_CM,
 							projections.RF.mean.2050.rcp85_CS,
@@ -1916,8 +1902,9 @@ projections.mean_2050_RF <- mean(projections.RF.mean.2050.rcp85_CC,
 							projections.RF.mean.2050.rcp85_IP,
 							projections.RF.mean.2050.rcp85_MC,
 							projections.RF.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_RF,filename="projections.mean_2050_RF.asc", format="ascii")
 projections.binary.mean_2050_RF <- BinaryTransformation(projections.mean_2050_RF, th_RF)
-writeRaster(projections.binary.mean_2050_RF, filename="Future Climate_binary_2050.rcp85_RF.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_RF, filename="Future Climate_binary_2050.rcp85_RF.asc", format="ascii")
 
 projections.mean_2050_ANN <- mean(projections.ANN.mean.2050.rcp85_CC,  
 							projections.ANN.mean.2050.rcp85_CM,
@@ -1928,8 +1915,9 @@ projections.mean_2050_ANN <- mean(projections.ANN.mean.2050.rcp85_CC,
 							projections.ANN.mean.2050.rcp85_IP,
 							projections.ANN.mean.2050.rcp85_MC,
 							projections.ANN.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_ANN,filename="projections.mean_2050_ANN.asc", format="ascii")
 projections.binary.mean_2050_ANN <- BinaryTransformation(projections.mean_2050_ANN, th_ANN)
-writeRaster(projections.binary.mean_2050_ANN, filename="Future Climate_binary_2050.rcp85_ANN.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_ANN, filename="Future Climate_binary_2050.rcp85_ANN.asc", format="ascii")
 
 projections.mean_2050_CTA <- mean(projections.CTA.mean.2050.rcp85_CC,  
 							projections.CTA.mean.2050.rcp85_CM,
@@ -1940,8 +1928,9 @@ projections.mean_2050_CTA <- mean(projections.CTA.mean.2050.rcp85_CC,
 							projections.CTA.mean.2050.rcp85_IP,
 							projections.CTA.mean.2050.rcp85_MC,
 							projections.CTA.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_CTA,filename="projections.mean_2050_CTA.asc", format="ascii")
 projections.binary.mean_2050_CTA <- BinaryTransformation(projections.mean_2050_CTA, th_CTA)
-writeRaster(projections.binary.mean_2050_CTA, filename="Future Climate_binary_2050.rcp85_CTA.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_CTA, filename="Future Climate_binary_2050.rcp85_CTA.asc", format="ascii")
 
 projections.mean_2050_FDA <- mean(projections.FDA.mean.2050.rcp85_CC,  
 							projections.FDA.mean.2050.rcp85_CM,
@@ -1952,8 +1941,9 @@ projections.mean_2050_FDA <- mean(projections.FDA.mean.2050.rcp85_CC,
 							projections.FDA.mean.2050.rcp85_IP,
 							projections.FDA.mean.2050.rcp85_MC,
 							projections.FDA.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_FDA,filename="projections.mean_2050_FDA.asc", format="ascii")
 projections.binary.mean_2050_FDA <- BinaryTransformation(projections.mean_2050_FDA, th_FDA)
-writeRaster(projections.binary.mean_2050_FDA, filename="Future Climate_binary_2050.rcp85_FDA.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_FDA, filename="Future Climate_binary_2050.rcp85_FDA.asc", format="ascii")
 
 projections.mean_2050_GAM <- mean(projections.GAM.mean.2050.rcp85_CC,  
 							projections.GAM.mean.2050.rcp85_CM,
@@ -1964,8 +1954,9 @@ projections.mean_2050_GAM <- mean(projections.GAM.mean.2050.rcp85_CC,
 							projections.GAM.mean.2050.rcp85_IP,
 							projections.GAM.mean.2050.rcp85_MC,
 							projections.GAM.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_GAM,filename="projections.mean_2050_GAM.asc", format="ascii")
 projections.binary.mean_2050_GAM <- BinaryTransformation(projections.mean_2050_GAM, th_GAM)
-writeRaster(projections.binary.mean_2050_GAM, filename="Future Climate_binary_2050.rcp85_GAM.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_GAM, filename="Future Climate_binary_2050.rcp85_GAM.asc", format="ascii")
 
 projections.mean_2050_GBM <- mean(projections.GBM.mean.2050.rcp85_CC,  
 							projections.GBM.mean.2050.rcp85_CM,
@@ -1976,8 +1967,9 @@ projections.mean_2050_GBM <- mean(projections.GBM.mean.2050.rcp85_CC,
 							projections.GBM.mean.2050.rcp85_IP,
 							projections.GBM.mean.2050.rcp85_MC,
 							projections.GBM.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_GBM,filename="projections.mean_2050_GBM.asc", format="ascii")
 projections.binary.mean_2050_GBM <- BinaryTransformation(projections.mean_2050_GBM, th_GBM)
-writeRaster(projections.binary.mean_2050_GBM, filename="Future Climate_binary_2050.rcp85_GBM.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_GBM, filename="Future Climate_binary_2050.rcp85_GBM.asc", format="ascii")
 
 projections.mean_2050_GLM <- mean(projections.GLM.mean.2050.rcp85_CC,  
 							projections.GLM.mean.2050.rcp85_CM,
@@ -1988,8 +1980,9 @@ projections.mean_2050_GLM <- mean(projections.GLM.mean.2050.rcp85_CC,
 							projections.GLM.mean.2050.rcp85_IP,
 							projections.GLM.mean.2050.rcp85_MC,
 							projections.GLM.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_GLM,filename="projections.mean_2050_GLM.asc", format="ascii")
 projections.binary.mean_2050_GLM <- BinaryTransformation(projections.mean_2050_GLM, th_GLM)
-writeRaster(projections.binary.mean_2050_GLM, filename="Future Climate_binary_2050.rcp85_GLM.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_GLM, filename="Future Climate_binary_2050.rcp85_GLM.asc", format="ascii")
 
 projections.mean_2050_MARS <- mean(projections.MARS.mean.2050.rcp85_CC,  
 							projections.MARS.mean.2050.rcp85_CM,
@@ -2000,8 +1993,9 @@ projections.mean_2050_MARS <- mean(projections.MARS.mean.2050.rcp85_CC,
 							projections.MARS.mean.2050.rcp85_IP,
 							projections.MARS.mean.2050.rcp85_MC,
 							projections.MARS.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_MARS,filename="projections.mean_2050_MARS.asc", format="ascii")
 projections.binary.mean_2050_MARS <- BinaryTransformation(projections.mean_2050_MARS, th_MARS)
-writeRaster(projections.binary.mean_2050_MARS, filename="Future Climate_binary_2050.rcp85_MARS.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_MARS, filename="Future Climate_binary_2050.rcp85_MARS.asc", format="ascii")
 
 projections.mean_2050_MAXENT <- mean(projections.MAXENT.mean.2050.rcp85_CC,  
 							projections.MAXENT.mean.2050.rcp85_CM,
@@ -2012,8 +2006,9 @@ projections.mean_2050_MAXENT <- mean(projections.MAXENT.mean.2050.rcp85_CC,
 							projections.MAXENT.mean.2050.rcp85_IP,
 							projections.MAXENT.mean.2050.rcp85_MC,
 							projections.MAXENT.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_MAXENT,filename="projections.mean_2050_MAXENT.asc", format="ascii")
 projections.binary.mean_2050_MAXENT <- BinaryTransformation(projections.mean_2050_MAXENT, th_MAXENT.Phillips)
-writeRaster(projections.binary.mean_2050_MAXENT, filename="Future Climate_binary_2050.rcp85_MAXENT.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_MAXENT, filename="Future Climate_binary_2050.rcp85_MAXENT.asc", format="ascii")
 
 projections.mean_2050_SRE <- mean(projections.SRE.mean.2050.rcp85_CC,  
 							projections.SRE.mean.2050.rcp85_CM,
@@ -2024,14 +2019,20 @@ projections.mean_2050_SRE <- mean(projections.SRE.mean.2050.rcp85_CC,
 							projections.SRE.mean.2050.rcp85_IP,
 							projections.SRE.mean.2050.rcp85_MC,
 							projections.SRE.mean.2050.rcp85_MR)
+writeRaster(projections.mean_2050_SRE,filename="projections.mean_2050_SRE.asc", format="ascii")
 projections.binary.mean_2050_SRE <- BinaryTransformation(projections.mean_2050_SRE, th_SRE)
-writeRaster(projections.binary.mean_2050_SRE, filename="Future Climate_binary_2050.rcp85_SRE.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050_SRE, filename="Future Climate_binary_2050.rcp85_SRE.asc", format="ascii")
 
 
+# Mapas de consenso: binário médio
 projections.binary.mean_2050.rcp85 <-mean(projections.binary.mean_2050.rcp85_CC + projections.binary.mean_2050.rcp85_CM + projections.binary.mean_2050.rcp85_CS + 
 					projections.binary.mean_2050.rcp85_FG + projections.binary.mean_2050.rcp85_GF + projections.binary.mean_2050.rcp85_HG +
                                projections.binary.mean_2050.rcp85_IP + projections.binary.mean_2050.rcp85_MC + projections.binary.mean_2050.rcp85_MR)
-writeRaster(projections.binary.mean_2050.rcp85, filename="Future Climate_binary_2050.rcp85_consenso.tif", format="GTiff")
+writeRaster(projections.binary.mean_2050.rcp85, filename="Ensemble - Future Climate_Mean Binary_2050.rcp85.asc", format="ascii")
+
+# Mapas de consenso: binário final
+ensemble2050rcp8.5_bin <- BinaryTransformation(ensemble2050rcp8.5, th_mean)
+writeRaster(ensemble2050rcp8.5_bin, filename="Ensemble - Future Climate_Final Binary_2050_rcp8.5.asc", format="ascii")
 
 
 save.image()
@@ -2040,17 +2041,6 @@ save.image()
 
 
 
-#Somente dê os comandos a seguir se você realmente não for precisar mais dos 
-#arquivos temporários!!!
 
-#Remoção de Arquivos Temporários
-## remove the tmp dir
-unlink(raster_tmp_dir, recursive = T, force = T)
-## Remove TempFiles
-showTmpFiles ()##arquivos temp. de no processo
-plot(wrld_simpl, add=T)
-
-
-
-#FIM
+#END
 -----------------------------------------------------------------------------
