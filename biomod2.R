@@ -623,7 +623,7 @@ writeRaster(projections.binary.GAM.mean, filename="Current Climate_GAM - BINARY.
 projections.binary.GLM.mean <- BinaryTransformation(projections.GLM.mean, th_GLM) #Calcular th
 class(projections.binary.GLM.mean)
 summary(values(projections.binary.GLM.mean))
-#plot(projections.binary.GAM.mean, col = matlab.like(100), main = "Current Climate_GLM", las = 1)
+#plot(projections.binary.GLM.mean, col = matlab.like(100), main = "Current Climate_GLM", las = 1)
 #plot(domains, add = TRUE, col="transparent", border="white", lwd = 0.5)
 writeRaster(projections.binary.GLM.mean, filename="Current Climate_GLM - BINARY.asc", formato="ascii")
 
